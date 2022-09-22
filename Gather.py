@@ -4,8 +4,9 @@ import numpy as np
 from time import sleep
 cifar10_name_hash = {0:'airplane', 1:'automobile',2:'bird', 3:'cat', 4:'deer',
                     5:'dog', 6:'frog', 7:'horse', 8:'ship', 9:'truck'}
-def pull_sample(data, label):
-    random_choice = np.random.randint(0, data.shape[0] - 1)
+def pull_sample(data, label, specific = False):
+    random_choice = specific
+    if(specific == False): random_choice = np.random.randint(0, data.shape[0] - 1)
     
     return [data[random_choice], int(label[random_choice])]
 def plot_sample(sample, hash = False):
@@ -16,7 +17,6 @@ def plot_sample(sample, hash = False):
     plt.figure()
 
 def normalize_data(test_data, validation_data):
-    print('NP MAX RESULT',float(np.max(test_data)))
     test_data = test_data / float(np.max(test_data))
     validation_data = validation_data / float(np.max(validation_data))
     return (test_data, validation_data)
