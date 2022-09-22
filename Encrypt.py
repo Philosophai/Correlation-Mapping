@@ -1,17 +1,23 @@
 import numpy as np
+import Gather
 
-def random_arrangement_grid(X_sample, seed = 0):
-    np.random.seed = seed
-    width_X = X_sample.__len__() ; height_X= X_sample[0].__len__()
-    print("length X", width_X, 'height X', height_X)
-    def one_dimensional_arrangement_generator(width_X= width_X, height_X = height_X):
-        arrangement = np.zeros((width_X, height_X))
-        for row in range(height_X):
-            pass
+def build_random_arrangement_grid(sample):
+    height = sample.shape[0]
+    width = sample.shape[1]
+    depth = sample.shape[2]
+    print(height, width, depth)
 
-def work_test():
-    pass
+def initialize_working_test():
+    cifar10 = Gather.download_and_normalize('cifar10', 10)
+    mnist = Gather.download_and_normalize('mnist', 10)
+    return mnist, cifar10
+def working_test(mnist, cifar10):
 
-    
+    build_random_arrangement_grid
+
+mnist, cifar10 = initialize_working_test()
+working_test(mnist, cifar10)
+
+
 
 

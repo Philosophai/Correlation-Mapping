@@ -34,6 +34,8 @@ def download_and_normalize(dataset = 'cifar10', size = 5000):
         (test_data, test_labels) , (validation_data, validation_labels) = download_cifar10(size)
     if (dataset == 'mnist'): 
         (test_data, test_labels) , (validation_data, validation_labels) = download_mnist(size)
+        # Make equal to coloured
+        test_data = np.expand_dims(test_data, 3) ; validation_data = np.expand_dims(validation_data, 3)
     try:
         (test_data, validation_data) = normalize_data(test_data, validation_data)
     except:
@@ -43,7 +45,7 @@ def download_and_normalize(dataset = 'cifar10', size = 5000):
 def gather_unit_test():
     print('Running MNIST download_and_normalize test:')
     (mnist_test_data, mnist_test_labels), (mnist_validation_data ,mnist_validation_labels) = download_and_normalize('mnist', 10)
-    print('Size 10:', len(mnist_test_data))
+    print('Size 10:', len(mnist_test_data), '\nShape ( 10, 28, 28,1)', mnist_test_data.shape)
     print('Running pull_sample on MNIST')
     mnist_sample = pull_sample(mnist_test_data, mnist_test_labels)
     print('Running plot_sample on MNIST')
@@ -51,12 +53,12 @@ def gather_unit_test():
 
     print("Running Cifar10 download_and_normalize:")
     (cifar10_test_data, cifar10_test_labels), (cifar10_validation_data, cifar10_validation_labels) = download_and_normalize('cifar10', 10)
-    print('Size 10:', len(cifar10_test_data))
+    print('Size 10:', len(cifar10_test_data),'\nShape (10, 32, 32,3)', cifar10_test_data.shape)
     print('Running pull_sample on Cifar10')
     cifar10_sample = pull_sample(cifar10_test_data, cifar10_test_labels)
     print('Running plot_sample on Cifar10')
     plot_sample(cifar10_sample, cifar10_name_hash)
     
 
-gather_unit_test()
+
 
