@@ -62,7 +62,6 @@ def initialize_working_test():
     (cifar10_test_data, cifar10_test_labels), (cifar10_validation_data, cifar10_validation_labels) = Gather.download_and_normalize('cifar10', 10)
     (mnist_test_data, mnist_test_labels), (mnist_validation_data ,mnist_validation_labels) = Gather.download_and_normalize('mnist', 10)
     return mnist_test_data,mnist_test_labels, cifar10_test_data, cifar10_test_labels
-
 def unit_test(mnist_test_data,mnist_test_labels, cifar10_test_data, cifar10_test_labels):
     random_sample_choice = np.random.randint(0, len(cifar10_test_data))
     sample_cifar10 = Gather.pull_sample(cifar10_test_data, cifar10_test_labels, random_sample_choice)
@@ -81,7 +80,6 @@ def unit_test(mnist_test_data,mnist_test_labels, cifar10_test_data, cifar10_test
     batch_decrypted_cifar10_sample = Gather.pull_sample(batch_decrypted_cifar10, cifar10_test_labels, random_sample_choice)
     Gather.plot_sample(batch_decrypted_cifar10_sample)
     Gather.plot_sample(sample_cifar10)
-
 def run_unit_test():
     nist_test_data,mnist_test_labels, cifar10_test_data, cifar10_test_labels = initialize_working_test()
     unit_test(nist_test_data,mnist_test_labels, cifar10_test_data, cifar10_test_labels)
