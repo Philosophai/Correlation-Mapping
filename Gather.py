@@ -4,10 +4,10 @@ import numpy as np
 from time import sleep
 cifar10_name_hash = {0:'airplane', 1:'automobile',2:'bird', 3:'cat', 4:'deer',
                     5:'dog', 6:'frog', 7:'horse', 8:'ship', 9:'truck'}
-def pull_sample(data, label, specific = False):
+def pull_sample(data, label, specific = False, picture_only = False):
     random_choice = specific
     if(specific == False): random_choice = np.random.randint(0, data.shape[0] - 1)
-    
+    if(picture_only): return data[random_choice]
     return [data[random_choice], int(label[random_choice])]
 def plot_sample(sample, hash = False):
     plt.imshow(sample[0])
