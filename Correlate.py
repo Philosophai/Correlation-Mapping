@@ -1,7 +1,7 @@
 import Gather
 import Encrypt
 import numpy as np
-
+import time
 class index_pixel:
     def __init__(self, index):
         self.index = index
@@ -52,14 +52,32 @@ class picture_pixel:
 
 
         
-    
+    def refactor_apply_association(self, association_type = average_difference):
+        association_lists = []
+        for index_pixel in range(self.index_pixels_length):
+            association_lists.append([])
+        for index_pixel_fixed in range(self.index_pixels_length):
+            
+            for index_pixel_orbit in range(index_pixel_fixed, self.index_pixels_length):
+                association_value = association_type(self.index_pixels[index_pixel_fixed],  self.index_pixels[index_pixel_orbit])
+                association_lists[index_pixel_fixed].append([association_value, self.index_pixels[index_pixel_orbit].index])
+                association_lists[index_pixel_orbit].append([association_value, self.index_pixels[index_pixel_fixed].index])
+
+        for index_pixel in range(self.index_pixels_length):
+            association_lists[index_pixel] = sorted(association_lists[index_pixel], key= lambda x:x[1])
+            association_lists[index_pixel] = np.array(association_lists[index_pixel], dtype=object)
+            self.index_pixels[index_pixel].integrate_association_list(association_lists[index_pixel])
+
+        self.update_index_pixels_hash()
+
+
                 
 
 
 
 def working_test():
     # pull in data 
-    ((test_data, test_labels) , (validation_data, validation_labels)) = Gather.download_and_normalize(size = 500)
+    ((test_data, test_labels) , (validation_data, validation_labels)) = Gather.download_and_normalize(size = 6000)
     random_arrangement_grid = Encrypt.build_random_arrangement_grid(Gather.pull_sample(test_data, test_labels, picture_only=True))
     # encrypt data
     encrypted_test_data = Encrypt.encrypt_batch(test_data, random_arrangement_grid)
@@ -72,17 +90,35 @@ def working_test():
     test_index_pixel_2.collect_data(test_data[0:500])
     '''
     test_picture_pixel = picture_pixel(test_data)
+    print("Timing original apply association")
+    start = time.time()
     test_picture_pixel.apply_association()
-    print(test_picture_pixel.index_pixels[0].association_list[0:40], '\n',test_picture_pixel.index_pixels_hash[(0,0)].association_list)
-
+    #print(test_picture_pixel.index_pixels[0].association_list[0:40], '\n',test_picture_pixel.index_pixels_hash[(0,0)].association_list)
+    original_apply_association = time.time() - start
     specific_pixel_0_0 = test_picture_pixel.index_pixels_hash[(0,0)]
     specific_pixel_0_1 = test_picture_pixel.index_pixels_hash[(0,1)]
-    print(specific_pixel_0_0.association_list[0:5],'\n',specific_pixel_0_1.association_list[0:5])
+    print(specific_pixel_0_0.association_list[0:5],'\n',specific_pixel_0_1.association_list[0:5],'\n Time for Completion:', original_apply_association)
 
+    test2_picture_pixel = picture_pixel(test_data)
+    print("\nTiming refactored apply association")
+    start = time.time()
+    test2_picture_pixel.refactor_apply_association()
+    refactored_apply_association = time.time() - start
+    #print(test2_picture_pixel.index_pixels[0].association_list[0:40], '\n',test2_picture_pixel.index_pixels_hash[(0,0)].association_list)
+
+    specific_pixel_0_0 = test2_picture_pixel.index_pixels_hash[(0,0)]
+    specific_pixel_0_1 = test2_picture_pixel.index_pixels_hash[(0,1)]
+    print(specific_pixel_0_0.association_list[0:5],'\n',specific_pixel_0_1.association_list[0:5],'\n Time for Completion:', refactored_apply_association)
+    print("Original:", original_apply_association, '\nRefactored:',refactored_apply_association,'\n X percent faster:',(original_apply_association - refactored_apply_association)/original_apply_association)
 
         
 
 
+#working_test()
+
+alpha = [[0, (1,1)], [0, (0,1)], [0, (3,1)], [0, (2,1)], [0, (0,2)]]
+print(alpha)
+sorted_alpha = sorted(alpha, key= lambda x:x[1])
+print(sorted_alpha)
+
 working_test()
-
-
