@@ -2,6 +2,11 @@ import Gather
 import Encrypt
 import numpy as np
 import time
+from matplotlib.pylab import matshow
+import matplotlib.pyplot as plt
+from matplotlib.animation import FFMpegWriter
+
+
 '''
 README.md
 1. 
@@ -58,7 +63,7 @@ class picture_pixel:
             raise ValueError( 'Length of Fixed:', len(index_pixel_fixed.data), 'Length of Orbit:',len(index_pixel_orbit.data), 'Different Datasets')
         return np.var(np.absolute(np.subtract(index_pixel_fixed.data, index_pixel_orbit.data)))
 
-    def apply_association(self, association_type = average_difference):
+    def apply_association(self, association_type = variance_of_difference):
         association_lists = []
         for index_pixel in range(self.index_pixels_length):
             association_lists.append([])
@@ -79,6 +84,71 @@ class picture_pixel:
 
         self.update_index_pixels_hash()
 
+
+    def pixel_select_history_graph(self, index, association_type = variance_of_difference):
+        # pass in a tuple ex. (3,4)
+        animation_association_graph = []
+        for index_pixel in range(self.index_pixels_length):
+            animation_association_graph.append(np.zeros((self.height, self.width)))
+            animation_association_graph[index_pixel][index[0]][index[1]] = 0
+        frame_counter = 1
+        for row in range(self.height):
+            for col in range(self.width):
+                if((row, col) != index):
+                    for future_frame in range(frame_counter, self.index_pixels_length):
+                        animation_association_graph[future_frame][row][col] = association_type(self.index_pixels_hash[index], self.index_pixels_hash[(row, col)])
+                    frame_counter += 1
+        
+        # now go back and normalize the association to max value 
+        max_val = 0 ; min_non_zero = 1
+        for row in range(self.height):
+            for col in range(self.width):
+                current_index = animation_association_graph[self.index_pixels_length-1][row][col]
+                if(current_index > max_val): max_val = current_index
+                if(current_index < min_non_zero and current_index != 0): min_non_zero = current_index
+
+        min_non_zero*=0.99 ; max_val -= min_non_zero
+        print(max_val)
+        for frame in range(self.index_pixels_length):
+            for row in range(self.height):
+                for col in range(self.width):
+                    animation_association_graph[frame][row][col] -= min_non_zero
+                    animation_association_graph[frame][row][col] /= max_val
+                    if(animation_association_graph[frame][row][col] <= 0): animation_association_graph[frame][row][col] = min_non_zero
+                    #print(animation_association_graph[frame][row][col])
+
+                    
+        animation_association_graph[self.index_pixels_length - 1][self.height-1][self.width-1] = animation_association_graph[self.index_pixels_length - 1][self.height-1][self.width-2]
+        print('\nMAX VALUE:',max_val,'\nMin Value', min_non_zero)
+        return animation_association_graph
+
+    def animate_image_matrix(self,history_graph, name):
+        def update_frames(frame):
+
+            return history_graph[frame]
+        plt.rcParams['animation.ffmpeg_path'] = '/usr/local/Cellar/ffmpeg/5.1.1/bin/ffmpeg'
+        fig = plt.figure()
+        plot_frame = plt.imshow(history_graph[self.index_pixels_length - 1])
+        
+        plt.title(name)
+        metadata = dict(title='Pixel Association History Graph', artist='John Brown')
+        writer = FFMpegWriter(fps = 64, metadata=metadata)
+       
+        with writer.saving(fig, 'pixel_association_history_graph.mp4', dpi=100):
+            for x in range(self.index_pixels_length):
+                
+                plot_frame.set_data(history_graph[x])
+                writer.grab_frame()
+
+
+        
+
+        
+        
+        
+        
+        
+print('UPDATED TWICE')
 
                 
 
@@ -185,7 +255,20 @@ def pixel_association_test():
     print('RATIO OF DIFFERENCE BETWEEN SIMILAR AND OTHER SIMILAR PIXELS\nAVERAGE:',other_similar_average/similar_average,
             '\nVARIANCE:',other_similar_variance/similar_variance)
 
+def animate_pixel_select_history_test():
+    ((test_data, test_labels) , (validation_data, validation_labels)) = Gather.download_and_normalize(dataset='cifar10', size = 2000)
+    random_arrangement_grid = Encrypt.build_random_arrangement_grid(Gather.pull_sample(test_data, test_labels, picture_only=True))
+    # encrypt data
+    encrypted_test_data = Encrypt.encrypt_batch(test_data, random_arrangement_grid)
+    picture_test_data = picture_pixel(test_data)
+    picture_test_data.apply_association()
+
+    index = (5,5)
+    test_data_animation_association_graph = picture_test_data.pixel_select_history_graph(index)
+
+    picture_test_data.animate_image_matrix(test_data_animation_association_graph, 'cifar10 pixel association graph (5,5)')
+
+animate_pixel_select_history_test()
 
 
 
-pixel_association_test()
