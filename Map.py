@@ -39,22 +39,20 @@ class lattice:
         for row in range(-1, 2):
             for col in range(-1, 2):
                 if( (row + map_index[0], col + map_index[1]) in self.map_hash and not ( col == row and col == 0 )):
-                    print('found node', (row + map_index[0], col + map_index[1]), 'from :',placed_node.map_index)
+                    #print('found node', (row + map_index[0], col + map_index[1]), 'from :',placed_node.map_index)
                     if((row,col) == up_code):
                         self.connect_up(placed_node,(row + map_index[0], col + map_index[1]))
-                        print('connected up')
+                        #print('connected up')
                     if((row,col) == down_code):
                         self.connect_down(placed_node,(row + map_index[0], col + map_index[1]))
-                        print('connected down')
+                        #print('connected down')
                     if((row,col) == right_code):
                         self.connect_right(placed_node,(row + map_index[0], col + map_index[1]))
-                        print('connected right')
+                        #print('connected right')
                     if((row,col) == left_code):
                         self.connect_left(placed_node,(row + map_index[0], col + map_index[1]))
-                        print('connected left')
+                        #print('connected left')
                                       
-
-
     def place_up(self, center_index, to_be_placed_index):
         center_map_index = self.placement_hash[center_index].map_index
         new_node = node(to_be_placed_index, self.hash[to_be_placed_index], (center_map_index[0] + 1, center_map_index[1]), down = self.placement_hash[center_index] )
@@ -107,7 +105,28 @@ class lattice:
         new_node.left = self.map_hash[index_to_be_connected_to]
         self.map_hash[index_to_be_connected_to].right = new_node
         
+    def display_self(self):
+        max_row = 0;min_row = 0;  max_col = 0; min_col = 0
+        for x in self.map_hash:
+            print(x)
+            if(x[0] > max_row): max_row = x[0]
+            if(x[0] < min_row): min_row = x[0]
 
+            if(x[1] > max_col): max_col = x[1]
+            if(x[1] < min_col): min_col = x[1]
+        row_space = abs(min_row) + max_row ; col_space = abs(min_col) + max_col
+        print(row_space, col_space)
+        grid = []
+        for x in range(row_space +1, -2, -1):
+            row = []
+            for y in range(-1, col_space + 2):
+                if( (x - min_row, y - min_col) in self.map_hash):
+                    row.append(self.map_hash[(x - min_row, y - min_col)].index)
+                else:
+                    row.append(('~','~'))
+            grid.append(row)
+        for x in grid:
+            print(x)
     def instantiate_list_as_nodes(self, stage):
         nodes = []
         for x in stage:
@@ -148,24 +167,24 @@ class lattice:
         total_vh_group = []
         anchor_vh = self.filter_through_placed([x[1] for x in self.anchor_index.vh])
         anchor_right_vh = self.filter_through_placed([x[1] for x in self.anchor_index.right.vh])
-        print(anchor_vh,'\n',anchor_right_vh)
+        #print(anchor_vh,'\n',anchor_right_vh)
         groups = []
         for index in anchor_vh:
             index_vh = [x[1] for x in self.hash[index].vh_association_group]
-            print(index_vh)
+            #print(index_vh)
             for indice_in_index_vh in index_vh:
                 for indice_in_anchor_right_vh in anchor_right_vh:
                     if(indice_in_index_vh == indice_in_anchor_right_vh and sorted([indice_in_index_vh, indice_in_anchor_right_vh]) not in groups):
                         groups.append( sorted([index, indice_in_anchor_right_vh]) )
         
         
-        print(groups)
-        print("STARTING FIRST ADDITION")
+        #print(groups)
+        #print("STARTING FIRST ADDITION")
         self.place_up(self.anchor_index.index, groups[0][0])
-        print(self.map_hash)
-        print("STARTING SECOND ADDITION",self.anchor_index.right.index)
+        #print(self.map_hash)
+        #print("STARTING SECOND ADDITION",self.anchor_index.right.index)
         self.place_up(self.anchor_index.right.index, groups[0][1])
-        print(self.map_hash)
+        #print(self.map_hash)
 
 
 
@@ -205,4 +224,5 @@ def working_test():
         print(x.index)
 
     lattice_test.expand_anchor()
+    lattice_test.display_self()
 working_test()
