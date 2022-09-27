@@ -31,12 +31,12 @@ class index_pixel:
         self.association_list = association_list
 
     def build_association_group(self):
-        print(type(self.association_list))
+        #print(type(self.association_list))
         if(type(self.association_list) == type(np.ndarray((1,1)))):
-            print(self.association_list[0:5])
+            #print(self.association_list[0:5])
             self.vh_association_group = self.association_list[1:5]
             self.diag_association_group = self.association_list[5:9]
-            print('\nvh:', self.vh_association_group,'\n\ndiag: ',self.diag_association_group)
+            #print('\nvh:', self.vh_association_group,'\n\ndiag: ',self.diag_association_group)
             #sorted_group = sorted(self.association_list, key= lambda x:x[0])
         else: raise ValueError('association list not formed or incorrectly formed: of type '+str(type(self.association_list)))
 
@@ -92,7 +92,7 @@ class picture_pixel:
             association_lists[index_pixel] = sorted(association_lists[index_pixel], key= lambda x:x[0])
             association_lists[index_pixel] = np.array(association_lists[index_pixel], dtype=object)
             self.index_pixels[index_pixel].integrate_association_list(association_lists[index_pixel])
-
+            self.index_pixels[index_pixel].build_association_group()
         self.update_index_pixels_hash()
 
 
