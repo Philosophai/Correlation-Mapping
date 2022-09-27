@@ -13,14 +13,13 @@ README.md
 2. describe classes 
 3. describe apply_association
 
-TODO:
-1. think about whether or not circular difference is a useful concept for this particular use case
-2. 
+TODO
 '''
 
 class index_pixel:
     def __init__(self, index):
         self.index = index
+        self.association_list = []
 
     def collect_data(self, data):
         self.data = []
@@ -30,6 +29,18 @@ class index_pixel:
 
     def integrate_association_list(self, association_list):
         self.association_list = association_list
+
+    def build_association_group(self):
+        print(type(self.association_list))
+        if(type(self.association_list) == type(np.ndarray((1,1)))):
+            print(self.association_list[0:5])
+            self.vh_association_group = self.association_list[1:5]
+            self.diag_association_group = self.association_list[5:9]
+            print('\nvh:', self.vh_association_group,'\n\ndiag: ',self.diag_association_group)
+            #sorted_group = sorted(self.association_list, key= lambda x:x[0])
+        else: raise ValueError('association list not formed or incorrectly formed: of type '+str(type(self.association_list)))
+
+            
 
 class picture_pixel:
     def __init__(self, data):
@@ -78,7 +89,7 @@ class picture_pixel:
                 association_lists[index_pixel_orbit].append([association_value, self.index_pixels[index_pixel_fixed].index])
 
         for index_pixel in range(self.index_pixels_length):
-            association_lists[index_pixel] = sorted(association_lists[index_pixel], key= lambda x:x[1])
+            association_lists[index_pixel] = sorted(association_lists[index_pixel], key= lambda x:x[0])
             association_lists[index_pixel] = np.array(association_lists[index_pixel], dtype=object)
             self.index_pixels[index_pixel].integrate_association_list(association_lists[index_pixel])
 
@@ -139,20 +150,7 @@ class picture_pixel:
                 
                 plot_frame.set_data(history_graph[x])
                 writer.grab_frame()
-
-
         
-
-        
-        
-        
-        
-        
-print('UPDATED TWICE')
-
-                
-
-
 
 def pixel_association_test():
     # pull in data 
@@ -320,7 +318,18 @@ def diagonal_difference_hypothesis_test(dataset = 'cifar10', index = (14,14), is
     return (VH_diff, diag_diff, outer_VH_diff, inner_diag_diff, outer_diag_diff)
 
 def distributed_diagonal_difference_hypothesis_test(dataset = 'cifar10'):
-
+    '''
+    VH = Vertical / Horizontal neighbours
+    diag = diagonal neighbours
+    outer VH = Vertical / horizontal pixels one pixel away
+    inner_diag = pixels adjacent to the North and south outer VH nodes ( simplification but not important and makes things easier)
+    outer_diag = diagonal pixels one pixel away
+    
+    This test goes through a particular dataset using cental nodes of range (8,8) -> (22,22) and shows the average variance of 
+    nodes from each group against each other. the average displayed is the average rank order from least variance to most so is
+    not necessarily corresponding to the same relation indice each time ei. the first minimal variance node may be north
+    while the second row it might be east.
+    '''
     VH_diff_collection, diag_diff_collection, outer_VH_diff_collection, inner_diag_diff_collection, outer_diag_diff_collection = [],[],[],[],[]
     collections = [VH_diff_collection, diag_diff_collection, outer_VH_diff_collection, inner_diag_diff_collection, outer_diag_diff_collection]
     print('Starting distributed diagonal difference hypothesis...\n')
@@ -341,7 +350,6 @@ def distributed_diagonal_difference_hypothesis_test(dataset = 'cifar10'):
     mean_collections = [VH_mean, diag_mean, outer_VH_mean, inner_diag_mean, outer_diag_mean]
     print("\nAVERAGE VH group by rank", VH_mean,'\nAVERAGE diag group by rank',diag_mean, '\nAVERAGE outer_VH group by rank',outer_VH_mean,'\nAVERAGE inner_diag group by rank',inner_diag_mean,'\nAVERAGE outer_diag group by rank',outer_diag_mean)
     
-distributed_diagonal_difference_hypothesis_test()
 def animate_pixel_select_history_test():
     ((test_data, test_labels) , (validation_data, validation_labels)) = Gather.download_and_normalize(dataset='cifar10', size = 2000)
     random_arrangement_grid = Encrypt.build_random_arrangement_grid(Gather.pull_sample(test_data, test_labels, picture_only=True))
@@ -355,7 +363,9 @@ def animate_pixel_select_history_test():
 
     picture_test_data.animate_image_matrix(test_data_animation_association_graph, 'cifar10 pixel association graph (5,5)')
 
-#animate_pixel_select_history_test()
-
-
-
+def association_group_test():
+    ((test_data, test_labels) , (validation_data, validation_labels)) = Gather.download_and_normalize(dataset='cifar10', size = 300)
+    picture_test = picture_pixel(test_data)
+    picture_test.apply_association()
+    picture_test.index_pixels_hash[(14,14)].build_association_group()
+association_group_test()
