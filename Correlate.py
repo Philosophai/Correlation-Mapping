@@ -255,6 +255,93 @@ def pixel_association_test():
     print('RATIO OF DIFFERENCE BETWEEN SIMILAR AND OTHER SIMILAR PIXELS\nAVERAGE:',other_similar_average/similar_average,
             '\nVARIANCE:',other_similar_variance/similar_variance)
 
+def diagonal_difference_hypothesis_test(dataset = 'cifar10', index = (14,14), is_subroutine = False):
+    # edit to choose dataset and center index
+    ((test_data, test_labels) , (validation_data, validation_labels)) = Gather.download_and_normalize(dataset=dataset, size = 2000)
+    picture_test = picture_pixel(test_data)
+    #picture_test.apply_association()
+    if(not is_subroutine):
+        print("CREATING INDICES for diagonal difference Hypothesis test\n")
+    center = picture_test.index_pixels_hash[index]
+    row = index[0] ; col = index[1]
+
+    VH_up = picture_test.index_pixels_hash[(row + 1, col)]
+    VH_down = picture_test.index_pixels_hash[(row - 1,col)]
+    VH_left = picture_test.index_pixels_hash[(row,col - 1)]
+    VH_right = picture_test.index_pixels_hash[(row,col + 1)]
+    VH = [VH_up, VH_down, VH_left, VH_right] ; VH_av = 0 ; VH_diff = []
+
+    diag_ul = picture_test.index_pixels_hash[(row + 1,row - 1)]
+    diag_ur = picture_test.index_pixels_hash[(row + 1,col + 1)]
+    diag_dl = picture_test.index_pixels_hash[(row - 1,col - 1)]
+    diag_dr = picture_test.index_pixels_hash[(row - 1,col + 1)]
+    diag = [diag_ul, diag_ur, diag_dl, diag_dr] ; diag_av = 0 ; diag_diff = []
+
+    outer_VH_up = picture_test.index_pixels_hash[(row + 2,col)]
+    outer_VH_down  = picture_test.index_pixels_hash[(row - 2,col)]
+    outer_VH_left= picture_test.index_pixels_hash[(row,col - 2)]
+    outer_VH_right = picture_test.index_pixels_hash[(row, col + 2)]
+    outer_VH = [outer_VH_up, outer_VH_down, outer_VH_left, outer_VH_right] ; outer_VH_av = 0 ; outer_VH_diff = []
+
+    inner_diag_ul = picture_test.index_pixels_hash[(row+2,col - 1)]
+    inner_diag_ur = picture_test.index_pixels_hash[(row + 2,col + 1)]
+    inner_diag_dl = picture_test.index_pixels_hash[(row - 2,col - 1)]
+    inner_diag_dr = picture_test.index_pixels_hash[(row - 2, col + 1)]
+    inner_diag = [inner_diag_ul, inner_diag_ur, inner_diag_dl, inner_diag_dr] ; inner_diag_av = 0 ; inner_diag_diff = []
+
+    outer_diag_ul = picture_test.index_pixels_hash[(row + 2,col - 2)]
+    outer_diag_ur = picture_test.index_pixels_hash[(row + 2,col + 2)]
+    outer_diag_dl = picture_test.index_pixels_hash[(row - 2,col - 2)]
+    outer_diag_dr = picture_test.index_pixels_hash[(row - 2,col + 2)]
+    outer_diag = [outer_diag_ul, outer_diag_ur, outer_diag_dl, outer_diag_dr] ; outer_diag_av = 0 ; outer_diag_diff = []
+
+    for x in range(4):
+        VH_diff.append(picture_pixel.variance_of_difference(center, VH[x]))
+        VH_av += VH_diff[x]
+
+        outer_VH_diff.append(picture_pixel.variance_of_difference(center, outer_VH[x]))
+        outer_VH_av += outer_VH_diff[x]
+
+        diag_diff.append(picture_pixel.variance_of_difference(center, diag[x]))
+        diag_av += diag_diff[x]
+
+        inner_diag_diff.append(picture_pixel.variance_of_difference(center, inner_diag[x]))
+        inner_diag_av += inner_diag_diff[x]
+
+        outer_diag_diff.append(picture_pixel.variance_of_difference(center, outer_diag[x]))
+        outer_diag_av += outer_diag_diff[x]
+
+    VH_diff = sorted(VH_diff) ; outer_VH_diff = sorted(outer_VH_diff) ; diag_diff = sorted(diag_diff) ; inner_diag_diff = sorted(inner_diag_diff) ; outer_diag_diff = sorted(outer_diag_diff)
+
+    VH_av /= 4 ; outer_VH_av /= 4 ; diag_av /= 4; inner_diag_av /= 4 ; outer_diag_av /= 4
+    if(not is_subroutine):
+        print('AVERAGE VARIANCE OF:\nVH group:',VH_av,'\ndiag group',diag_av,'\nouter_VH group',outer_VH_av,'\ninner_diag group',inner_diag_av,'\nouter_diag group',outer_diag_av)
+        print('\nVH group:',VH_diff,'\ndiag group:',diag_diff,'\nouter_VH group:',outer_VH_diff,'\ninner_diag group:',inner_diag_diff,'\nouter_diag group:',outer_diag_diff)
+    return (VH_diff, diag_diff, outer_VH_diff, inner_diag_diff, outer_diag_diff)
+
+def distributed_diagonal_difference_hypothesis_test(dataset = 'cifar10'):
+
+    VH_diff_collection, diag_diff_collection, outer_VH_diff_collection, inner_diag_diff_collection, outer_diag_diff_collection = [],[],[],[],[]
+    collections = [VH_diff_collection, diag_diff_collection, outer_VH_diff_collection, inner_diag_diff_collection, outer_diag_diff_collection]
+    print('Starting distributed diagonal difference hypothesis...\n')
+    start = time.time()
+    for row in range(8,22):
+        if(row == 9):
+            print('estimated time to complete based off one iteration:', (time.time() - start)*12)
+            row_interval = (time.time() - start)
+        if(row > 9):
+            print('estimated time to complete:',row_interval*(22 - row - 1))
+
+        for col in range(8, 22):
+            new_input = diagonal_difference_hypothesis_test(dataset = dataset, index = (row, col), is_subroutine=True)
+            for insertion in range(0,5):
+                collections[insertion].append(new_input[insertion])
+    
+    VH_mean = np.mean(collections[0], axis = 0) ; diag_mean = np.mean(collections[1], axis = 0) ; outer_VH_mean = np.mean(collections[2], axis = 0); inner_diag_mean = np.mean(collections[3], axis = 0); outer_diag_mean = np.mean(collections[4], axis = 0)
+    mean_collections = [VH_mean, diag_mean, outer_VH_mean, inner_diag_mean, outer_diag_mean]
+    print("\nAVERAGE VH group by rank", VH_mean,'\nAVERAGE diag group by rank',diag_mean, '\nAVERAGE outer_VH group by rank',outer_VH_mean,'\nAVERAGE inner_diag group by rank',inner_diag_mean,'\nAVERAGE outer_diag group by rank',outer_diag_mean)
+    
+distributed_diagonal_difference_hypothesis_test()
 def animate_pixel_select_history_test():
     ((test_data, test_labels) , (validation_data, validation_labels)) = Gather.download_and_normalize(dataset='cifar10', size = 2000)
     random_arrangement_grid = Encrypt.build_random_arrangement_grid(Gather.pull_sample(test_data, test_labels, picture_only=True))
@@ -268,7 +355,7 @@ def animate_pixel_select_history_test():
 
     picture_test_data.animate_image_matrix(test_data_animation_association_graph, 'cifar10 pixel association graph (5,5)')
 
-animate_pixel_select_history_test()
+#animate_pixel_select_history_test()
 
 
 
