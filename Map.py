@@ -127,6 +127,7 @@ class lattice:
             grid.append(row)
         for x in grid:
             print(x)
+    
     def instantiate_list_as_nodes(self, stage):
         nodes = []
         for x in stage:
@@ -185,19 +186,30 @@ class lattice:
         #print("STARTING SECOND ADDITION",self.anchor_index.right.index)
         self.place_up(self.anchor_index.right.index, groups[0][1])
         #print(self.map_hash)
-
-
-
     def find_corners(self, total_vh_group):
         print(total_vh_group)
-
+        twice_present_nodes = []
+        for index_outer in range(len(total_vh_group)):
+            outer_group = self.hash[total_vh_group[index_outer]].vh_association_group
+            print('\nGroup based on index',total_vh_group[index_outer],':',outer_group)
+            for index_inner in range(len(total_vh_group)):
+                if(index_outer != index_inner):
+                    inner_group = self.hash[total_vh_group[index_inner]].vh_association_group
+                    print('Subgroup based on index',total_vh_group[index_inner],':',inner_group)
+                    for element_outer in range(4):
+                        for element_inner in range(4):
+                            if(outer_group[element_outer][1] == inner_group[element_inner][1]):
+                                print('found corner:',outer_group[element_outer][1],inner_group[element_inner][1] )
+                                twice_present_nodes.append(outer_group[element_outer][1])
+        twice_present_nodes = self.filter_through_placed(set(twice_present_nodes))
+        print(twice_present_nodes)
     def grow(self):
         total_vh_group = []
         for node in self.placement_list:
             vh_indices = [x[1] for x in node.vh]
             print(vh_indices)
             total_vh_group += self.filter_through_placed(vh_indices)
-        total_vh_group = set(total_vh_group)
+        total_vh_group = list(set(total_vh_group))
         self.find_corners(total_vh_group)
 
 
@@ -220,9 +232,8 @@ def working_test():
     infile = open(cifar_test_key,'rb')
     picture_test = pickle.load(infile)
     lattice_test = lattice(picture_test, (13,13))
-    for x in lattice_test.placement_list:
-        print(x.index)
 
     lattice_test.expand_anchor()
     lattice_test.display_self()
+    lattice_test.grow()
 working_test()
