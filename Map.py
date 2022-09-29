@@ -3,6 +3,8 @@ import Encrypt
 import Correlate
 import pickle
 import numpy as np
+import matplotlib.pyplot as plt
+from time import time
 
 cifar_test_key = "/Users/johnbrown/Desktop/Nelson/CSL/Correlation-Mapping/mapping_test.obj"
 
@@ -18,7 +20,11 @@ class node:
         self.diag = index_pixel.diag_association_group
 
     def has_connections_available(self):
-        if(self.up is None and self.down is None and self.left is None and self.right is None): return False
+
+        if(self.up != None and self.down != None and self.left != None and self.right != None):
+            #print("NO CONNECTIONS AVAILABLE")
+            return False
+        #print("CONNECTIONS AVAILABLE")
         return True
 
     def find_available_connections(self):
@@ -62,7 +68,13 @@ class lattice:
                     if((row,col) == left_code):
                         self.connect_left(placed_node,(row + map_index[0], col + map_index[1]))
                         #print('connected left')
-                                      
+
+    def place_by_label(self, center_index, to_be_placed_index, direction):
+        if(direction == 'up'): self.place_up(center_index, to_be_placed_index)    
+        if(direction == 'down'): self.place_down(center_index, to_be_placed_index)  
+        if(direction == 'left'): self.place_left(center_index, to_be_placed_index)  
+        if(direction == 'right'): self.place_right(center_index, to_be_placed_index)  
+
     def place_up(self, center_index, to_be_placed_index):
         center_map_index = self.placement_hash[center_index].map_index
         new_node = node(to_be_placed_index, self.hash[to_be_placed_index], (center_map_index[0] + 1, center_map_index[1]), down = self.placement_hash[center_index] )
@@ -104,7 +116,7 @@ class lattice:
         
     def place_left(self, center_index, to_be_placed_index):
         center_map_index = self.placement_hash[center_index].map_index
-        new_node = node(to_be_placed_index, self.hash[to_be_placed_index], (center_map_index[0], center_map_index[1] - 1),left = self.placement_hash[center_index] )
+        new_node = node(to_be_placed_index, self.hash[to_be_placed_index], (center_map_index[0], center_map_index[1] - 1),right = self.placement_hash[center_index] )
         self.placement_hash[center_index].left = new_node
         self.placement_hash[to_be_placed_index] = new_node
         self.placement_list.append(new_node)
@@ -117,26 +129,44 @@ class lattice:
         
     def display_self(self):
         max_row = 0;min_row = 0;  max_col = 0; min_col = 0
+        print("DISPLAYING LATTICE\n")
         for x in self.map_hash:
-            print(x)
+            
             if(x[0] > max_row): max_row = x[0]
             if(x[0] < min_row): min_row = x[0]
 
             if(x[1] > max_col): max_col = x[1]
             if(x[1] < min_col): min_col = x[1]
         row_space = abs(min_row) + max_row ; col_space = abs(min_col) + max_col
-        print('ROW SPACE:',row_space,'COL SPACE:', col_space)
+        #print('ROW SPACE:',row_space,'COL SPACE:', col_space)
+        #print('max row:', max_row, 'min row:',min_row,' max col:',max_col, 'min col:',min_col)
         grid = []
-        for x in range(row_space +1, -2, -1):
+        for x in range(max_row, min_row - 1, -1):
             row = []
-            for y in range(-1, col_space + 2):
-                if( (x + min_row, y - min_col) in self.map_hash):
-                    row.append(self.map_hash[(x + min_row, y - min_col)].index)
-                else:
-                    row.append(('~','~'))
+            for y in range(min_col, max_col + 1):
+                try:
+                    row.append(str(self.map_hash[(x,y)].index))
+                except:
+                    row.append(str(None))
             grid.append(row)
-        for x in grid:
-            print(x)
+        s = [[str(e) for e in row] for row in grid]
+        lens = [max(map(len, col)) for col in zip(*s)]
+        fmt = '\t'.join('{{:{}}}'.format(x) for x in lens)
+        table = [fmt.format(*row) for row in s]
+        print('\n'.join(table))
+        return (row_space + 1, col_space + 1)
+        '''
+        print(np.array(grid))
+        plt.matshow(grid)
+        plt.figure()
+        string_grid = []
+        for row in grid:
+            string_row = ''
+            for col in row:
+                string_row += '\t'
+                string_row += str(col)
+            print(string_row)
+        '''
     
     def instantiate_list_as_nodes(self, stage):
         nodes = []
@@ -144,6 +174,35 @@ class lattice:
             nodes.append(node(x[1],self.hash[x[1]]))
         return nodes
 
+    def find_ring_bounds(self):
+        # given a node, find the available connection adjacent to the most node
+        row_min = 0; row_max = 0; col_min = 0 ; col_max = 0
+        for pixel in self.map_hash:
+            #print('map hash found node', pixel)
+            if(row_min > pixel[0]): row_min = pixel[0]
+            if(row_max < pixel[0]): row_max = pixel[0]
+            if(col_min > pixel[1]): col_min = pixel[1]
+            if(col_max < pixel[1]): col_max = pixel[1]
+        #print('expanded row_min', row_min - 1,'\nexpanded row_max',row_max+1, '\nexpanded col_min',col_min-1,'\nexpanded col_max',col_max+1)
+        return (row_min - 1, row_max + 1, col_min - 1, col_max + 1)
+
+    def find_next_spot(self, link, bounds):
+        link_row = self.placement_hash[link].map_index[0] ; link_col = self.placement_hash[link].map_index[1]
+        available = self.placement_hash[link].find_available_connections()
+        projected_indices = []
+        if('up' in available): projected_indices.append([(link_row + 1, link_col), 'up'])
+        if('down' in available): projected_indices.append([(link_row - 1, link_col), 'down'])
+        if('left' in available): projected_indices.append([(link_row, link_col - 1), 'left'])
+        if('right' in available): projected_indices.append([(link_row, link_col + 1), 'right'])
+        #print('link index',(link_row, link_col) )
+        #print('available ',available)
+        #print('projected indices:',projected_indices)
+        #print('bounds',bounds)
+        for projected_index in projected_indices:
+            if(projected_index[0][0] >= bounds[0] and projected_index[0][0] <= bounds[1]):
+                if(projected_index[0][1] >= bounds[2] and projected_index[0][1] <= bounds[3]):
+                    #print("FOUND POSSIBLE CONNECTION AT", projected_index)
+                    return projected_index
 
     def mutually_included(self, stage):
         number_of_stages = len(stage)
@@ -203,154 +262,165 @@ class lattice:
         #print("STARTING SECOND ADDITION",self.anchor_index.right.index)
         self.place_up(self.anchor_index.right.index, groups[0][1])
         #print(self.map_hash)
-    def find_corners(self, total_vh_group):
-        print(total_vh_group)
-        twice_present_nodes = []
-        for index_outer in range(len(total_vh_group)):
-            outer_group = self.hash[total_vh_group[index_outer]].vh_association_group
-            #print('\nGroup based on index',total_vh_group[index_outer],':',outer_group)
-            for index_inner in range(len(total_vh_group)):
-                if(index_outer != index_inner):
-                    inner_group = self.hash[total_vh_group[index_inner]].vh_association_group
-                    #print('Subgroup based on index',total_vh_group[index_inner],':',inner_group)
-                    for element_outer in range(4):
-                        for element_inner in range(4):
-                            if(outer_group[element_outer][1] == inner_group[element_inner][1]):
-                                #print('found corner:',outer_group[element_outer][1],inner_group[element_inner][1] )
-                                twice_present_nodes.append(outer_group[element_outer][1])
-        twice_present_nodes = self.filter_through_placed(set(twice_present_nodes))
-        return twice_present_nodes
-    
+
+    def intersect_vh_groups(self, index_a, index_b):
+        return self.filter_through_placed(set([x[1] for x in self.hash[index_a].vh_association_group]).intersection( set([x[1] for x in self.hash[index_b].vh_association_group])))
+
     def build_ring(self):
-        total_vh_group = []
-        for node in self.placement_list:
-            if(node.has_connections_available()):
-                vh_indices = [x[1] for x in node.vh]
-                print(vh_indices)
-                total_vh_group += self.filter_through_placed(vh_indices)
-        total_vh_group = list(set(total_vh_group))
-        total_vh_group += self.find_corners(total_vh_group)
-        ring = []
-        for node_index in total_vh_group:
 
-            #print('\nmutual',self.mutually_included( [  self.hash[node_index].vh_association_group,[(0,x) for x in total_vh_group] ]))
-            ring.append([node_index,self.mutually_included( [  self.hash[node_index].vh_association_group,[(0,x) for x in total_vh_group] ]) ])
-        return ring
-
-    def find_ring_receivers(self):
-        for node_outer in self.placement_list:
-            #print('\n\n\n')
-            if(node_outer.has_connections_available()):
-                
-                for node_inner in self.placement_list:
-                    if(node_inner.has_connections_available() and node_inner.index != node_outer.index):
-                        #print('node inner index', node_inner.index)
-                        #print('node outer index', node_outer.index)
-                        outer_vh = [x[1] for x in self.hash[node_outer.index].vh_association_group]
-                        inner_vh = [x[1] for x in self.hash[node_inner.index].vh_association_group]
-                        #print('\nouter vh:',outer_vh,'\ninner vh:',inner_vh)
-                        if(node_inner.index in outer_vh and node_outer.index in inner_vh):
-                            
-                            return node_inner.index, node_outer.index
-    def attach_locks_to_receivers(self, alpha_receiver, alpha_lock, beta_receiver, beta_lock, direction):
-        direction_function = False
-        print(direction)
-        if(direction == 'up'): direction_function = self.place_up
-        if(direction == 'down'): direction_function = self.place_down
-        if(direction == 'left'): direction_function = self.place_left
-        if(direction == 'right'): direction_function = self.place_right
-
-        direction_function(alpha_receiver , alpha_lock)
-        direction_function(beta_receiver, beta_lock)
+        ring_group = []
+        for placed_index in self.placement_list:
+            if(placed_index.has_connections_available()):
+                ring_group += self.filter_through_placed([x[1] for x in self.hash[placed_index.index].vh_association_group])
+        lock_link = list(set(ring_group))[0]
+        non_corner_ring = list(set(ring_group))
+        #print('lock link:',lock_link)
+        corner_presence = []
+        for link in ring_group:
+            #print('vh of ',link,':',[x[1] for x in self.hash[link].vh_association_group])
+            #print('ring group',ring_group)
+            #print('', len(set(ring_group).intersection( set([x[1] for x in self.hash[link].vh_association_group]))))
+            corner_presence.append([link, len(set(ring_group).intersection( set([x[1] for x in self.hash[link].vh_association_group])))])
+            
+        # corner presence indicates if an element has a corner element, if the corner presence is 1 it only has one neighbour
+        # from the ring group, indicating it has an edge
+        for link_a in corner_presence:
+            for link_b in corner_presence:
+                if(link_a[1] == 1 and link_b[1] == 1 and link_a[0] != link_b[0]):
+                    #set([x[1] for x in self.hash[link_a[0]].vh_association_group]).intersection( set([x[1] for x in self.hash[link_b[0]].vh_association_group]))
+                    additions = self.intersect_vh_groups(link_a[0], link_b[0])
+                    #print('intersection of {link_a} and {link_b}:'.format(link_a = link_a[0], link_b = link_b[0]))
+                    #print(self.intersect_vh_groups(link_a[0], link_b[0]))
+                    ring_group += additions
+        ring_group = list(set(ring_group))
+        #print('length of ring:', len(ring_group))
         
-    def is_ring_placed(self, ring):
-        nodes = [x[0] for x in ring]
-        to_be_placed = len(self.filter_through_placed(nodes))
-        print('number of nodes to be placed:',to_be_placed)
-        if(to_be_placed == 0):
-            return True
-        return False
-    
-    def sort_ring_by_alpha(self, ring, alpha_lock, beta_lock):
+        lock_index = False
+        for x in range(len(ring_group)):
+            if(ring_group[x] == lock_link): lock_index = x
+        #print(lock_link, ring_group[lock_index])
+        ring = [] ; ring_index = 0
+        # this section makes sure that alpha and beta are both not corners
+        lock_link_neighbours = list(set(ring_group).intersection( set([x[1] for x in self.hash[lock_link].vh_association_group])))
+        if(lock_link_neighbours[1] in non_corner_ring): ring.append([lock_link, lock_link_neighbours])
+        else: ring.append([lock_link, [lock_link_neighbours[1], lock_link_neighbours[0]]])
         
-        alpha_ring = []
-        print('\nring[0]',ring[0])
-        for link in ring:
-            if(link[0] == alpha_lock):
-                print('prechange',link)
-                link_index = link[0]
-                if(link[1][0] == beta_lock):
-                    alpha_ring = [link_index, [link[1][0], link[1][1]] ]
-                else:
-
-                    alpha_ring = [link_index, [link[1][1], link[1][0]]]
+        #print('ring[0]',ring[0]) 
         
-        print('post change:', alpha_ring)
-
-        new_ring = [alpha_ring] ; insertion_counter = 0
-        while(new_ring[insertion_counter][1][1] != alpha_lock):
-            new_link = []
-            new_link_index = new_ring[insertion_counter][1][1]
-            for link in ring:
-                if(link[0] == new_link_index):
-                    print('prechange', link)
-                    if(link[1][0] == new_ring[insertion_counter][0]):
-                        new_link = link
-                    else:
-                        new_link = [link[0], [link[1][1], link[1][0]]]
-            print('post change:', new_link)
-            new_ring.append(new_link) ; insertion_counter += 1
-        for link in new_ring:
-            print(link)
-        print("DONE NEW RING")
-    def grow(self, ring):
-        ring_receiver_alpha, ring_receiver_beta = self.find_ring_receivers()
-        print('ring:',ring, '\nring[0]',ring[0])
-        alpha_vh = [] ; beta_vh = []
-        print('self.hash[ring_lock_alpha].vh_association_group:',self.hash[ring_receiver_alpha].vh_association_group,'\nself.hash[ring_lock_beta].vh_association_group',self.hash[ring_receiver_beta].vh_association_group)
-        # find out which indices in the ring are in the ring lock groups for attachment
-        for link in ring:
-            if(link[0] in [ x[1] for x in self.hash[ring_receiver_alpha].vh_association_group]):
-                alpha_vh.append(link[0])
-            if(link[0] in [ x[1] for x in self.hash[ring_receiver_beta].vh_association_group]):
-                beta_vh.append(link[0])
         
-        # find out which of the nodes in alpha_vh and beta_vh are associated with each other
+        # this section orders the ring so that the format is [current link, [previous link, next link]]
+        while(len(ring) < len(ring_group)):
 
-        for alpha_lock in alpha_vh:
-            for beta_lock in beta_vh:
-                if(alpha_lock in [ x[1] for x in self.hash[beta_lock].vh_association_group] and beta_lock in [ x[1] for x in self.hash[alpha_lock].vh_association_group]):
-                    print('\nFound Linked Nodes:',alpha_lock, beta_lock)
-                    break
-        print('alpha_vh:',alpha_vh,'\nbeta_vh',beta_vh)
-        print('ring lock alpha', alpha_lock, 'ring lock beta', beta_lock)
-        print('ring receiver alpha',ring_receiver_alpha,'ring receiver beta', ring_receiver_beta)
-        #print('open connections alpha:',self.placement_hash[ring_lock_alpha].find_available_connections(),'\nopen connections beta:', self.placement_hash[ring_lock_beta].find_available_connections())
-       
-        # this is not readable but is simple, the mutually_included function was built for processing tuples by the second index. thats all this does.
-        mutual_availability = self.mutually_included( [ [ (0,x) for x in self.placement_hash[ring_receiver_alpha].find_available_connections()  ] , [(0,x) for x in self.placement_hash[ring_receiver_beta].find_available_connections()]])
-        print('mutual availability:', mutual_availability)
-        if(len(mutual_availability) > 1):
-            print('\n\n\n\n FAILED PLACEMENT. DONE EXPANSION \n\n')
+            
+
+            try:
+                new_link = ring[ring_index][1][1]
+            except:
+                print("ERROR WITH PLACING:", )
+                print("Couldn't find next neighbour in this group. Lets look")
+                for node_index in ring_group:
+                    if(node_index not in ring[ring_index][1]):
+                        print('examining', node_index)
+                        neighbours = list(set(ring_group).intersection( set([x[1] for x in self.hash[node_index].vh_association_group])))
+                        print('neighbours:', neighbours)
+                        if(ring[ring_index][0] in neighbours):
+                            print('found a match at', node_index," group: ", neighbours)
+                            ring[ring_index][1].append(node_index)
+
+
+            new_neighbours = list(set(ring_group).intersection( set([x[1] for x in self.hash[new_link].vh_association_group])))
+            #print('neighbours: ', new_neighbours)
+            if(new_neighbours[0] == ring[ring_index][0]): ring.append([new_link, new_neighbours])
+            else: ring.append([new_link, [new_neighbours[1], new_neighbours[0]]])
+            ring_index += 1
+        
+        return ring        
+
+
+    def bind_ring(self, ring):
+        def neighbour_of(location_a, location_b):
+            # receiver two map indices and determine if they are touching each other, include diagonals
+            for row in range(-1, 2):
+                for col in range(-1, 2):
+                    if((location_a[0] + row, location_a[1] + col) == location_b):
+                        return True
             return False
-        self.is_ring_placed(ring)
-        self.attach_locks_to_receivers(ring_receiver_alpha, alpha_lock, ring_receiver_beta, beta_lock, mutual_availability[0])
-        self.is_ring_placed(ring)
-        self.sort_ring_by_alpha(ring, alpha_lock, beta_lock)
+        def find_map_indices_from_options(current_map_index, options):
+            locations = []
+            if('up' in options): locations.append([(current_map_index[0] + 1, current_map_index[1]), 'up'])
+            if('down' in options): locations.append([(current_map_index[0] - 1, current_map_index[1]), 'down'])
+            if('left' in options): locations.append([(current_map_index[0], current_map_index[1] - 1), 'left'])
+            if('right' in options): locations.append([(current_map_index[0], current_map_index[1] + 1),'right'])
+            return locations
+
+        def extract_direction_from_difference(difference_between_docks):
+            if(difference_between_docks == (1,0)): return 'up'
+            if(difference_between_docks == (-1,0)): return 'down'
+            if(difference_between_docks == (0,-1)): return 'left'
+            if(difference_between_docks == (0,1)): return 'right'
+
+        bounds = self.find_ring_bounds()
+        row_min = bounds[0] ; row_max = bounds[1] ; col_min = bounds[2] ; col_max = bounds[3]
+        print('Bounds:', bounds)
+        for link in ring:
+            print(link)
         
+        # place anchor
+        alpha_link = ring[0][0] ; alpha_dock = False;  beta_link = ring[1][0] ; beta_dock = False
+        for node_index in self.placement_list:
+            if(alpha_link in [x[1] for x in self.hash[node_index.index].vh_association_group]): alpha_dock = node_index
+            if(beta_link in [x[1] for x in self.hash[node_index.index].vh_association_group]): beta_dock = node_index
+            
+        print(alpha_link, ' being placed next to ', alpha_dock.index)
+        print(beta_link, ' being placed next to ', beta_dock.index)
+        difference_between_docks = (beta_dock.map_index[0] - alpha_dock.map_index[0] , beta_dock.map_index[1] - alpha_dock.map_index[1])
+        print(difference_between_docks)
+        # now i have the direction alpha will place beta
 
+        # need to place alpha in correct position
+        options = alpha_dock.find_available_connections()
+        print(options)
+        locations = find_map_indices_from_options(alpha_dock.map_index, options)
+        print(locations)
+        neighbour_choice = None
+        for loc in locations:
+            if(neighbour_of( loc[0], beta_dock.map_index)): neighbour_choice = loc
+        
+        print('chosen location: ', neighbour_choice)
+        # place alpha 
+        self.place_by_label(alpha_dock.index, alpha_link, neighbour_choice[1])
+        # place beta off alpha
+        self.place_by_label( alpha_link, beta_link, extract_direction_from_difference(difference_between_docks))
 
+        print(ring[2])
+        for link in range(2, len(ring)):
+            print(link, bounds)
+            
+            location_direction = self.find_next_spot(ring[link][1][0], bounds) ; direction = location_direction[1]
+            print('index to be placed',ring[link][0],'location:', location_direction)
+            self.place_by_label(ring[link][1][0], ring[link][0], direction)
+            self.display_self()
+        pass
 
-
-
-
-
+    
+    def grow(self):
+        try:
+            start = time()
+            ring = self.build_ring()
+            self.bind_ring(ring)
+            self.display_self()
+            print("Finished growth in ", time() - start)
+            return time() - start
+        except:
+            dimensions = self.display_self()
+            print("Made it this far before an error.", dimensions)
+            return False
 
 
 
 
 def save_test():
-    ((test_data, test_labels) , (validation_data, validation_labels)) = Gather.download_and_normalize(dataset='cifar10', size = 300)
+    ((test_data, test_labels) , (validation_data, validation_labels)) = Gather.download_and_normalize(dataset='cifar10', size = 1000)
     picture_test = Correlate.picture_pixel(test_data)
     picture_test.apply_association()
     outfile = open(cifar_test_key,'wb')
@@ -368,7 +438,18 @@ def working_test():
     lattice_test = lattice(picture_test, (13,13))
 
     lattice_test.expand_anchor()
+
     lattice_test.display_self()
-    lattice_test.grow(lattice_test.build_ring())
-    lattice_test.display_self()
+    time = 0.0 ; new_time = lattice_test.grow()
+    while(new_time):
+        time += new_time
+        new_time = lattice_test.grow()
+    print('Total Elapsed Time: ', time)
+    
+
+
+
+
+    
+save_test()
 working_test()
