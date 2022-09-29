@@ -5,13 +5,12 @@ import pickle
 import numpy as np
 import matplotlib.pyplot as plt
 from time import time
-
-cifar_test_key = "/Users/johnbrown/Desktop/Nelson/CSL/Correlation-Mapping/mapping_test.obj"
-
 '''
 TODO:
-1. refactor type(self.up) != type(None) to use some python syntax. looks messy.
+1. refactor out the self displays 
 '''
+cifar_test_key = "/Users/johnbrown/Desktop/Nelson/CSL/Correlation-Mapping/mapping_test.obj"
+
 class node:
     def __init__(self, index, index_pixel, map_index, up = None, down = None, right = None, left = None):
         self.index = index ; self.map_index = map_index
@@ -238,6 +237,26 @@ class lattice:
                 if(in_placed):
                     passed.append(staged_item)
         return passed
+    def expand_anchor_better(self):
+        self.display_self()
+        vh_anchor = [ x[1] for x in self.hash[self.placement_list[0].index].vh_association_group]
+        vh_right = [ x[1] for x in self.hash[self.placement_list[1].index].vh_association_group]
+        print("VH of anchor", vh_anchor)
+        print("VH of right of anchor", vh_right)
+        for index_anchor in vh_anchor:
+            vh_index_anchor = [ x[1] for x in self.hash[index_anchor].vh_association_group]
+            for index_right in vh_right:
+                vh_index_right = [ x[1] for x in self.hash[index_right].vh_association_group]
+                if(index_anchor != self.placement_list[1].index and index_right != self.placement_list[0].index):
+                    included = len(set(vh_index_anchor).intersection(set([index_right])))
+                    print(index_anchor, index_right, set(vh_index_anchor).intersection(set([index_right])))
+                    if(included):
+                        print("VALID PAIR")
+                        self.place_by_label(self.placement_list[0].index, index_anchor, 'up')
+                        self.place_by_label(self.placement_list[1].index, index_right, 'up')
+                        return
+
+        # find first pair to place above
 
     def expand_anchor(self):
         # now i have self.anchor and self.anchor.up
@@ -316,11 +335,11 @@ class lattice:
             try:
                 new_link = ring[ring_index][1][1]
             except:
-                print("ERROR WITH PLACING:", )
+                print("ERROR WITH PLACING:",ring[ring_index][0] )
                 print("Couldn't find next neighbour in this group. Lets look")
                 for node_index in ring_group:
                     if(node_index not in ring[ring_index][1]):
-                        print('examining', node_index)
+                        print('examining', node_index, )
                         neighbours = list(set(ring_group).intersection( set([x[1] for x in self.hash[node_index].vh_association_group])))
                         print('neighbours:', neighbours)
                         if(ring[ring_index][0] in neighbours):
@@ -408,14 +427,20 @@ class lattice:
             start = time()
             ring = self.build_ring()
             self.bind_ring(ring)
-            self.display_self()
+            #self.display_self()
             print("Finished growth in ", time() - start)
-            return time() - start
+            return [self.display_self(), True]
         except:
             dimensions = self.display_self()
             print("Made it this far before an error.", dimensions)
-            return False
+            return [dimensions, False]
 
+    def lifecycle(self):
+        dimensions_life = [] ; alive = True
+        while(alive):
+            dimensions_life = self.grow()
+            alive = dimensions_life[1]
+        return dimensions_life[0]
 
 
 
@@ -432,7 +457,7 @@ def load_test():
     print(type(new_test))
 
 def working_test():
-    if(type(None) != type(None)): print("weeee")
+   
     infile = open(cifar_test_key,'rb')
     picture_test = pickle.load(infile)
     lattice_test = lattice(picture_test, (13,13))
@@ -440,16 +465,73 @@ def working_test():
     lattice_test.expand_anchor()
 
     lattice_test.display_self()
-    time = 0.0 ; new_time = lattice_test.grow()
-    while(new_time):
-        time += new_time
-        new_time = lattice_test.grow()
+    
+
     print('Total Elapsed Time: ', time)
     
-
-
-
+def index_distribution_test():
+    ((test_data, test_labels) , (validation_data, validation_labels)) = Gather.download_and_normalize(dataset='cifar10', size = 1000)
+    random_arrangement_grid = Encrypt.build_random_arrangement_grid(Gather.pull_sample(test_data, test_labels, picture_only=True))
+    encrypted_test_data = Encrypt.encrypt_batch(test_data, random_arrangement_grid)
+    decrypted_data = Encrypt.decrypt_batch(encrypted_test_data, random_arrangement_grid)
+    
+    picture_test = Correlate.picture_pixel(test_data)
+    picture_test.apply_association()
+    dimensions = []
+    latti = []
+    for row in range(0, 31):
+        for col in range(0,31):
+            print('running iteration ',(row-12)*(col-12) + col - 12, 'on :',row,col)
+            lattice_test = lattice(picture_test, (row,col))
+            lattice_test.expand_anchor_better()
+            dimensions.append(lattice_test.lifecycle())
+            latti.append(lattice_test)
+    latti[0].display_self()
+    latti[1].display_self()
+    row_av = 0 ; col_av = 0 ; data_inc = 0
+    
+    # not including anything smaller than 4
+    for data in range(len(dimensions)):
+        print(data,':',dimensions[data])
+        if(dimensions[data][0] > 2 and dimensions[data][1] > 2):
+            row_av += dimensions[data][0] 
+            col_av += dimensions[data][1]
+            data_inc +=1
+    print('len dimensions', len(dimensions))
+    print('average row of :',row_av/data_inc,'\naverage col of :', col_av/data_inc,'\nincluded samples: ',data_inc / len(dimensions))
+    print(len(encrypted_test_data), len(decrypted_data))
+    print(random_arrangement_grid[0])
+    test_norm_pic = Correlate.picture_pixel(test_data)
+    test_enc_pic = Correlate.picture_pixel(encrypted_test_data)
+    test_norm_pic.apply_association() ; test_enc_pic.apply_association()
+    print("PRINTING VH NODES")
+    print(test_norm_pic.index_pixels_hash[(0,0)].vh_association_group)
+    print(test_enc_pic.index_pixels_hash[(random_arrangement_grid[0][0][0],random_arrangement_grid[0][0][1])].vh_association_group)
+    
+    print(test_data[0][0][0])
+    print(encrypted_test_data[0][random_arrangement_grid[0][0][0]][random_arrangement_grid[0][0][1]])
 
     
-save_test()
-working_test()
+    
+    
+def another_test():
+    np.random.seed = 1
+    ((test_data, test_labels) , (validation_data, validation_labels)) = Gather.download_and_normalize(dataset='cifar10', size = 3000)
+    random_arrangement_grid = Encrypt.build_random_arrangement_grid(Gather.pull_sample(test_data, test_labels, picture_only=True))
+    print(random_arrangement_grid[14][12], random_arrangement_grid[14][13],random_arrangement_grid[14][14])
+    print(random_arrangement_grid[13][12], random_arrangement_grid[13][13],random_arrangement_grid[13][14] )
+    print(random_arrangement_grid[12][12], random_arrangement_grid[12][13],random_arrangement_grid[12][14] )
+    # encrypt data
+    encrypted_test_data = Encrypt.encrypt_batch(test_data, random_arrangement_grid)
+    decrypted_data = Encrypt.decrypt_batch(encrypted_test_data, random_arrangement_grid)
+    picture_test = Correlate.picture_pixel(decrypted_data)
+    picture_test.apply_association()
+    lattice_test = lattice(picture_test, (13,14))
+    lattice_test.expand_anchor_better()
+    lattice_test.display_self()
+    
+    print(lattice_test.lifecycle())
+    
+
+    
+index_distribution_test()
