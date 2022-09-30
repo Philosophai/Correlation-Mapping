@@ -238,7 +238,7 @@ class lattice:
                     passed.append(staged_item)
         return passed
     def expand_anchor_better(self):
-        self.display_self()
+        #self.display_self()
         vh_anchor = [ x[1] for x in self.hash[self.placement_list[0].index].vh_association_group]
         vh_right = [ x[1] for x in self.hash[self.placement_list[1].index].vh_association_group]
         print("VH of anchor", vh_anchor)
@@ -416,9 +416,9 @@ class lattice:
             print(link, bounds)
             
             location_direction = self.find_next_spot(ring[link][1][0], bounds) ; direction = location_direction[1]
-            print('index to be placed',ring[link][0],'location:', location_direction)
+            #print('index to be placed',ring[link][0],'location:', location_direction)
             self.place_by_label(ring[link][1][0], ring[link][0], direction)
-            self.display_self()
+            #self.display_self()
         pass
 
     
@@ -429,7 +429,7 @@ class lattice:
             self.bind_ring(ring)
             #self.display_self()
             print("Finished growth in ", time() - start)
-            return [self.display_self(), True]
+            return [0, True]
         except:
             dimensions = self.display_self()
             print("Made it this far before an error.", dimensions)
@@ -442,6 +442,18 @@ class lattice:
             alive = dimensions_life[1]
         return dimensions_life[0]
 
+    def transform(self, picture):
+        blank = np.zeros((len(picture), len(picture[0]) , len(picture[0][1])))
+        print(blank.shape)
+        for x in self.map_hash:
+            print(x, (self.base_index[0] + x[0],self.base_index[1] + x[1]) , self.map_hash[x].index)
+            blank[self.base_index[0] + x[0]][self.base_index[1] + x[1]] = picture[self.map_hash[x].index[0]][self.map_hash[x].index[1]]
+        plt.imshow(blank)
+        plt.show()
+        plt.figure
+        plt.imshow(picture)
+        plt.show()
+        plt.figure()
 
 
 def save_test():
@@ -510,10 +522,7 @@ def index_distribution_test():
     
     print(test_data[0][0][0])
     print(encrypted_test_data[0][random_arrangement_grid[0][0][0]][random_arrangement_grid[0][0][1]])
-
-    
-    
-    
+   
 def another_test():
     np.random.seed = 1
     ((test_data, test_labels) , (validation_data, validation_labels)) = Gather.download_and_normalize(dataset='cifar10', size = 3000)
@@ -534,4 +543,19 @@ def another_test():
     
 
     
-index_distribution_test()
+def lattice_transform_test():
+    ((test_data, test_labels) , (validation_data, validation_labels)) = Gather.download_and_normalize(dataset='cifar10', size = 1000)
+    random_arrangement_grid = Encrypt.build_random_arrangement_grid(Gather.pull_sample(test_data, test_labels, picture_only=True))
+    encrypted_test_data = Encrypt.encrypt_batch(test_data, random_arrangement_grid)
+    picture_test = Correlate.picture_pixel(encrypted_test_data)
+    picture_test.apply_association()
+    lattice_test = lattice(picture_test, (14,13))
+    lattice_test.expand_anchor_better()
+    lattice_test.lifecycle()
+    print("Starting Transform:")
+    lattice_test.transform(encrypted_test_data[0])
+    plt.imshow(test_data[0])
+    plt.show()
+    plt.figure()
+
+lattice_transform_test()
