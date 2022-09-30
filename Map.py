@@ -661,7 +661,7 @@ class lattice:
 
             map_hash_stack = self.bind_ring(ring, animation=animation)
             #self.display_self()
-            print("Finished growth in ", time() - start)
+            #print("Finished growth in ", time() - start)
             
             return [map_hash_stack, True]
         except:
@@ -817,7 +817,7 @@ def index_distribution_test():
     
    
 def animation_test():
-    ((test_data, test_labels) , (validation_data, validation_labels)) = Gather.download_and_normalize(dataset='cifar10', size = 3000)
+    ((test_data, test_labels) , (validation_data, validation_labels)) = Gather.download_and_normalize(dataset='mnist', size = 3000)
     random_arrangement_grid = Encrypt.build_random_arrangement_grid(Gather.pull_sample(test_data, test_labels, picture_only=True))
     print(random_arrangement_grid[14][12], random_arrangement_grid[14][13],random_arrangement_grid[14][14])
     print(random_arrangement_grid[13][12], random_arrangement_grid[13][13],random_arrangement_grid[13][14] )
@@ -846,7 +846,7 @@ def show_extraction(map_hash, transformed_image, base_image):
     #full_image = np.zeros((int(len(transformed_image)), int((2 + len(transformed_image[0]) + len(base_image[0]))), int(len(base_image[0][0]))))
     full_image = []
     for x in map_hash:
-        base_image[map_hash[x].index[0]][map_hash[x].index[1]] = np.zeros((3))
+        base_image[map_hash[x].index[0]][map_hash[x].index[1]] = base_image.shape[2]
     for row in range(len(transformed_image)):
         new_row = []
     
@@ -877,7 +877,7 @@ def lattice_transform_test():
     picture_test.apply_association()
 
     #lattice_test = lattice(picture_test, (random_arrangement_grid[13][14][0], random_arrangement_grid[13][14][1]))
-    lattice_test = lattice(picture_test, (13,13))
+    lattice_test = lattice(picture_test, (14,14))
     lattice_test.expand_anchor_better()
     map_hash_stack = lattice_test.lifecycle(animation=True)
     print("Starting Transform: check for animation")
@@ -885,12 +885,12 @@ def lattice_transform_test():
     transformed_pictures = []
     
     for map_hash in map_hash_stack:
-        image = lattice_test.transform(encrypted_test_data[0], map_hash, show = False, base_index= (14,14))
+        image = lattice_test.transform(test_data[0], map_hash, show = False, use_background=True,base_index= (14,14))
         transformed_pictures.append(image)
 
     
     
-    animate_image_matrix(transformed_pictures, 'Lattice Construction Extraction Visualization: Encrypted data', 64)
+    animate_image_matrix(transformed_pictures, 'Lattice Uncertain Construction Error', 8)
     
     image = lattice_test.transform(encrypted_test_data[0], map_hash_stack[20], show = False, base_index= (14,14))
     plt.imshow(show_extraction(map_hash_stack[20], image, encrypted_test_data[0]))
@@ -918,4 +918,4 @@ def mnist_test():
     lattice_test.grow(animation=True)
     lattice_test.grow(animation=True)
 
-index_distribution_test()
+lattice_transform_test()
