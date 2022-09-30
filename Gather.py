@@ -2,13 +2,15 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import numpy as np
 from time import sleep
+import tensorflow_datasets as tfds
+
 cifar10_name_hash = {0:'airplane', 1:'automobile',2:'bird', 3:'cat', 4:'deer',
                     5:'dog', 6:'frog', 7:'horse', 8:'ship', 9:'truck'}
 def pull_sample(data, label = None, specific = False, picture_only = False):
     random_choice = specific
     if(specific == False): random_choice = np.random.randint(0, data.shape[0] - 1)
     if(picture_only): return data[random_choice]
-    
+
     return [data[random_choice], int(label[random_choice])]
 def plot_sample(sample, hash = False):
     plt.imshow(sample[0])
@@ -25,6 +27,16 @@ def normalize_data(test_data, validation_data):
 def download_cifar10(size = 5000):
     (test_data, test_labels) , (validation_data, validation_labels) = tf.keras.datasets.cifar10.load_data()
     return ((test_data[:size], test_labels[:size]) , (validation_data[:size], validation_labels[:size]))
+
+def download_flowers(size = 5000):
+    training_set = tfds.load('tf_flowers')
+    nump_set = tfds.as_numpy(training_set)
+    #print(nump_set.shape)
+    for x in nump_set['train']:
+        print(x)
+    return training_set
+    
+
 
 def download_mnist(size = 5000):
     (test_data, test_labels) , (validation_data, validation_labels) = tf.keras.datasets.mnist.load_data()
@@ -59,7 +71,3 @@ def gather_unit_test():
     cifar10_sample = pull_sample(cifar10_test_data, cifar10_test_labels)
     print('Running plot_sample on Cifar10')
     plot_sample(cifar10_sample, cifar10_name_hash)
-    
-
-
-

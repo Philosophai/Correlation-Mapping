@@ -4,6 +4,7 @@ import Correlate
 import pickle
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.animation import FFMpegWriter
 from time import time
 '''
 TODO:
@@ -36,7 +37,7 @@ class node:
         return open
 
 class lattice:
-
+    
     def __init__(self, picture_pixel, anchor_index):
         self.anchor_index = node(anchor_index, picture_pixel.index_pixels_hash[anchor_index], (0,0))
         self.anchor_index.right = node(self.anchor_index.vh[0][1],picture_pixel.index_pixels_hash[self.anchor_index.vh[0][1]],(0,1), left = self.anchor_index)
@@ -46,6 +47,11 @@ class lattice:
         self.base_index = anchor_index
         self.picture = picture_pixel
         self.hash = picture_pixel.index_pixels_hash
+        self.uncertain = False
+        for node_index in self.hash:
+            if(self.hash[node_index].vh_association_group[2][0] == 0.0):
+                self.uncertain = True
+                break
     
 
     def connect_local(self, placed_node):
@@ -74,6 +80,15 @@ class lattice:
         if(direction == 'left'): self.place_left(center_index, to_be_placed_index)  
         if(direction == 'right'): self.place_right(center_index, to_be_placed_index)  
 
+    def place_by_map_index(self, to_be_placed_index, map_index_target):
+        if(map_index_target in self.map_hash):
+            raise ValueError ('MAP INDEX ALREADY IN USE')
+        new_node = node(to_be_placed_index, self.hash[to_be_placed_index], map_index_target)
+        self.placement_hash[to_be_placed_index] = new_node
+        self.placement_list.append(new_node)
+        self.map_hash[map_index_target] = new_node
+        self.connect_local(new_node)
+        
     def place_up(self, center_index, to_be_placed_index):
         center_map_index = self.placement_hash[center_index].map_index
         new_node = node(to_be_placed_index, self.hash[to_be_placed_index], (center_map_index[0] + 1, center_map_index[1]), down = self.placement_hash[center_index] )
@@ -285,8 +300,111 @@ class lattice:
     def intersect_vh_groups(self, index_a, index_b):
         return self.filter_through_placed(set([x[1] for x in self.hash[index_a].vh_association_group]).intersection( set([x[1] for x in self.hash[index_b].vh_association_group])))
 
-    def build_ring(self):
+    def uncertain_expand_group(self):
+        def compute_bond_value(link_a, vh_a,link_b,vh_b ):
+            vh_a_index = 0 ; vh_b_index = 0
+            bond_value = 0
+            for index_a in range(len(vh_a)):
+                if(link_b == vh_a[index_a]):
+                    bond_value += self.hash[link_a].vh_association_group[index_a][0]
+                    print('updating bond with link reference 1')
+            for index_b in range(len(vh_b)):
+                if(link_a == vh_b[index_b]): 
+                    print('updating bond with link reference 2')
+                    bond_value += self.hash[link_b].vh_association_group[index_b][0]
+            
+            for index_base in self.placement_list:
+                for value in range(len(self.hash[index_base.index].vh_association_group)):
+                    if(self.hash[index_base.index].vh_association_group[value][1] == link_a):
+                        print('updating bond with core reference 1')
+                        bond_value += self.hash[index_base.index].vh_association_group[value][0]
+                    if(self.hash[index_base.index].vh_association_group[value][1] == link_b):
+                        print('updating bond with core reference 2')
+                        bond_value += self.hash[index_base.index].vh_association_group[value][0]    
+            return bond_value
+        def build_ring_group():
 
+            print('uncertain expand group:\n')
+            ring_group = []
+            for placed_index in self.placement_list:
+                if(placed_index.has_connections_available()):
+                    ring_group += self.filter_through_placed([x[1] for x in self.hash[placed_index.index].vh_association_group])
+                    print('indice:',placed_index.index,' group:',[x[1] for x in self.hash[placed_index.index].vh_association_group])
+            ring_group = list(set(ring_group))
+            return ring_group
+        def find_two_groups_in_ring_group(ring_group):
+        
+            for link in ring_group:
+                print(link, [x[1] for x in self.hash[link].vh_association_group])
+
+            groups = []
+            for link_a in ring_group:
+                vh_a = self.filter_through_placed([x[1] for x in self.hash[link_a].vh_association_group])
+                for link_b in ring_group:
+                    vh_b = self.filter_through_placed([x[1] for x in self.hash[link_b].vh_association_group])
+                    if(link_a in vh_b and link_b in vh_a):
+
+                        bond_value = compute_bond_value(link_a, vh_a, link_b, vh_b)
+                            
+                        print('adding',link_a,link_b, 'with combined value: ', bond_value)
+                        if(link_a > link_b):
+                            groups.append((link_a, link_b, bond_value))
+                        else:
+                            groups.append((link_b, link_a, bond_value))
+
+            groups = list(set(groups))
+            groups = sorted(groups, key = lambda x:x[2])
+            return groups
+        def build_linked_sections(groups):
+            growth_section_start_with_one = [groups[0][0]]
+            growth_section_start_with_two = [groups[0][1]]
+            for index in range(1, len(groups)):
+                for sub_index in range(0,2):
+                    print('roups[index][sub_index]',groups[index][sub_index],'growth_section_start_with_one[-1]',growth_section_start_with_two[-1])
+                    if(groups[index][sub_index] == growth_section_start_with_one[-1] and groups[index][sub_index] not in growth_section_start_with_one):
+                        
+                        if(sub_index == 0): growth_section_start_with_one.append(groups[index][1])
+                        else: growth_section_start_with_one.append(groups[index][0])
+                    if(groups[index][sub_index] == growth_section_start_with_two[-1]):
+                        print("INSERTING")
+                        if(sub_index == 0 and groups[index][1] not in growth_section_start_with_two): growth_section_start_with_two.append(groups[index][1])
+                        else:
+                            if(sub_index == 1 and groups[index][0] not in growth_section_start_with_two): growth_section_start_with_two.append(groups[index][0])
+            return growth_section_start_with_one, growth_section_start_with_two
+        def output_max_sized_usable_section(growth_section_start_with_one,growth_section_start_with_two):
+            print('starts with one', growth_section_start_with_one)
+            print('starts with two', growth_section_start_with_two)
+            print('Attempting section merge: intersection returns ',set(growth_section_start_with_one).intersection(set(growth_section_start_with_two)))
+            growth = []
+            if(len(set(growth_section_start_with_one).intersection(set(growth_section_start_with_two))) == 0):
+                print("VOID INTERSECTION CAN APPEND ONE To TWO")
+                
+                for index in range(len(growth_section_start_with_one) -1, -1, -1):
+                    growth.append(growth_section_start_with_one[index])
+                for index in growth_section_start_with_two:
+                    growth.append(index)
+                print('growth: ', growth)
+            else:
+                if(len(growth_section_start_with_one) > len(growth_section_start_with_two)):
+                    growth = growth_section_start_with_one
+                else: growth = growth_section_start_with_two
+
+            print('Growth group', growth)
+
+            return growth
+        ring_group = build_ring_group()
+        groups = find_two_groups_in_ring_group(ring_group)
+        
+        growth_section_start_with_one, growth_section_start_with_two = build_linked_sections(groups)
+        return output_max_sized_usable_section(growth_section_start_with_one, growth_section_start_with_two)
+        
+
+        
+        
+
+    def build_ring(self):
+        if(self.uncertain):
+            return self.uncertain_expand_group()
         ring_group = []
         for placed_index in self.placement_list:
             if(placed_index.has_connections_available()):
@@ -355,8 +473,111 @@ class lattice:
         
         return ring        
 
+    def uncertain_bind_section(self, section, animation = False):
+        def copy_map_hash(self):
+            copy = {}
+            for x in self.map_hash:
+                copy[x] = self.map_hash[x]
+            return copy
+        
+        def possible_locations_generator(proximity_restrictions_section):
+            #print('Examining', proximity_restrictions_section[0])
+            possibles = []
+            for prox_nec in proximity_restrictions_section[1]:
+                map_index = self.placement_hash[prox_nec].map_index
+               
+                
+                for row in range(-1,2):
+                    for col in range(-1,2):
+                        if((map_index[0] + row, map_index[1] + col) not in self.map_hash):
+                            #print('possible:',(map_index[0] + row, map_index[1] + col),' from ',map_index)
+                            possibles.append((map_index[0] + row, map_index[1] + col))
+            return [proximity_restrictions_section[0], possibles]
 
-    def bind_ring(self, ring):
+        def possible_configurations_generator(possible_configurations):
+            def add_conflict_free(index, previous_configuration, possible_configurations,global_configurations):
+                if(index >= len(possible_configurations)):
+                    if(previous_configuration not in global_configurations):
+                        global_configurations.append(previous_configuration)
+                    return
+                    
+                
+                conflict_free_configurations = []
+                for x in possible_configurations[index][1]:
+                    if(x not in previous_configuration):
+                        x_dif = abs(x[0] - previous_configuration[index-1][0]) ; y_dif = abs(x[1] - previous_configuration[index-1][1])
+                        if(x_dif != y_dif and x_dif < 2 and y_dif < 2):
+                            #_dif = abs(x[0] - previous_configuration[index-1][0]) ; y_dif = abs(x[1] - previous_configuration[index-1][1])
+                            #difference = [x[0] + abs(x[1]) - abs(previous_configuration[index-1][0]) - abs(previous_configuration[index-1][1])
+                            #print('x_dif',x_dif,'y_dif',y_dif)
+                            temp = previous_configuration + [x]
+                            add_conflict_free(index + 1,temp ,possible_configurations, global_configurations )
+                
+                
+            conflict_free_configurations = []
+            for x in possible_configurations[0][1]:
+                add_conflict_free(1, [x], possible_configurations, conflict_free_configurations)
+            return conflict_free_configurations
+
+        def judge_configurations(conflict_free_configurations, section):
+            judged_configurations = []
+            print('Configuration Judgement\n')
+            for conf in conflict_free_configurations:
+                judge_value = 0
+                print('JUDGING CONF', conf)
+                for index in range(len(conf)):
+                    print('desired_adjacency: ')
+                    print(section[index], self.filter_through_placed([ x[1] for x in self.hash[section[index]].vh_association_group], reverse=True))
+                    wanted_adjacency_list = self.filter_through_placed([ x[1] for x in self.hash[section[index]].vh_association_group], reverse=True)
+                    for wanted_adjacency in wanted_adjacency_list:
+                        map_index = self.placement_hash[wanted_adjacency].map_index
+                        print(wanted_adjacency, 'at', map_index)
+                        x_dif = abs(map_index[0] - conf[index][0]) ; y_dif = abs(map_index[1] - conf[index][1])
+                        if(x_dif != y_dif and x_dif < 2 and y_dif < 2):
+                            print('yay got a positive')
+                            judge_value += 1
+                judged_configurations.append([judge_value, conf])
+            return sorted(judged_configurations, key= lambda x:x[0], reverse=True)
+        
+        print('Link Index, index vh group filtered through in-place')
+        proximity_restrictions = []
+        for link in section:
+            proximity_restrictions.append([link, self.filter_through_placed([ x[1] for x in self.hash[link].vh_association_group], reverse=True)])
+        
+        possible_configurations = []
+        for link_restrictions in proximity_restrictions:
+            possible_configurations.append(possible_locations_generator(link_restrictions))
+        
+        if(section == None):
+            return False
+
+        conflict_free_configurations = possible_configurations_generator(possible_configurations)
+        for x in conflict_free_configurations:
+            print(x)
+        judged = judge_configurations(conflict_free_configurations, section)
+        for x in judged:
+            print(x)
+        print('arbitrarily picked from judged:', judged[0])
+        best = judged[0][1]
+
+        map_states = []
+        if(animation): map_states = [copy_map_hash(self)]
+
+
+        for index in range(len(best)):
+            self.place_by_map_index(section[index], best[index])
+            if(animation): map_states.append(copy_map_hash(self))
+
+        
+        if(animation): return map_states
+        return None
+
+
+        
+
+    def bind_ring(self, ring, animation = False):
+        if(self.uncertain):
+            return self.uncertain_bind_section(ring, animation = animation)
         def neighbour_of(location_a, location_b):
             # receiver two map indices and determine if they are touching each other, include diagonals
             for row in range(-1, 2):
@@ -377,6 +598,12 @@ class lattice:
             if(difference_between_docks == (-1,0)): return 'down'
             if(difference_between_docks == (0,-1)): return 'left'
             if(difference_between_docks == (0,1)): return 'right'
+
+        def copy_map_hash(self):
+            copy = {}
+            for x in self.map_hash:
+                copy[x] = self.map_hash[x]
+            return copy
 
         bounds = self.find_ring_bounds()
         row_min = bounds[0] ; row_max = bounds[1] ; col_min = bounds[2] ; col_max = bounds[3]
@@ -406,11 +633,14 @@ class lattice:
             if(neighbour_of( loc[0], beta_dock.map_index)): neighbour_choice = loc
         
         print('chosen location: ', neighbour_choice)
+        map_states = []
+        if(animation): map_states = [copy_map_hash(self)]
         # place alpha 
         self.place_by_label(alpha_dock.index, alpha_link, neighbour_choice[1])
+        if(animation): map_states.append(copy_map_hash(self))
         # place beta off alpha
         self.place_by_label( alpha_link, beta_link, extract_direction_from_difference(difference_between_docks))
-
+        if(animation): map_states.append(copy_map_hash(self)) 
         print(ring[2])
         for link in range(2, len(ring)):
             print(link, bounds)
@@ -418,44 +648,93 @@ class lattice:
             location_direction = self.find_next_spot(ring[link][1][0], bounds) ; direction = location_direction[1]
             #print('index to be placed',ring[link][0],'location:', location_direction)
             self.place_by_label(ring[link][1][0], ring[link][0], direction)
+            if(animation): map_states.append(copy_map_hash(self))
             #self.display_self()
-        pass
+        if(animation): return map_states
+        return None
 
     
-    def grow(self):
+    def grow(self, animation = False):
         try:
             start = time()
             ring = self.build_ring()
-            self.bind_ring(ring)
+
+            map_hash_stack = self.bind_ring(ring, animation=animation)
             #self.display_self()
             print("Finished growth in ", time() - start)
-            return [0, True]
+            
+            return [map_hash_stack, True]
         except:
             dimensions = self.display_self()
             print("Made it this far before an error.", dimensions)
+            
             return [dimensions, False]
 
-    def lifecycle(self):
+    def lifecycle(self, animation = False):
         dimensions_life = [] ; alive = True
+        animation_stack = []
         while(alive):
-            dimensions_life = self.grow()
+            dimensions_life = self.grow(animation=animation)
             alive = dimensions_life[1]
+            if(animation): animation_stack += dimensions_life[0]
+        if(animation and alive == False): 
+            print("RETURNING ANIMATION STACK")
+            return [animation_stack[x] for x in range(0, len(animation_stack) -2)]
         return dimensions_life[0]
 
-    def transform(self, picture):
-        blank = np.zeros((len(picture), len(picture[0]) , len(picture[0][1])))
-        print(blank.shape)
-        for x in self.map_hash:
-            print(x, (self.base_index[0] + x[0],self.base_index[1] + x[1]) , self.map_hash[x].index)
-            blank[self.base_index[0] + x[0]][self.base_index[1] + x[1]] = picture[self.map_hash[x].index[0]][self.map_hash[x].index[1]]
-        plt.imshow(blank)
-        plt.show()
-        plt.figure
-        plt.imshow(picture)
-        plt.show()
-        plt.figure()
+    def transform(self, picture, map_hash = None, show = True, use_background = False, base_index = (None, None)):
+        if(map_hash == None):
+            map_hash = self.map_hash
+        #print('picture shape', picture.shape)
+        blank = np.zeros((len(picture), len(picture[0]), len(picture[0][1])))
+        if(use_background):
+            for pix_row in range(len(picture)):
+                for pix_col in range(len(picture[0])):
+                    blank[pix_row][pix_col] = picture[pix_row][pix_col]
+            
+        if(base_index[0] == None):
+            min_row = 0; min_col = 0
+            
+            base_index = (int(len(picture)/2)-2, int(len(picture[0])/2)-2)
+        for x in map_hash:
+            
+            #print('map_hash[x].index[0]',map_hash[x].index[0],'map_hash[x].index[1]',map_hash[x].index[1],'self.base_index[0]',self.base_index[0],'self.base_index[1]',self.base_index[1],'x[0]',x[0],'x[1]',x[1])
+            blank[base_index[0] - x[0]][base_index[1] - x[1]] = picture[map_hash[x].index[0]][map_hash[x].index[1]]
+        if(show):
+            plt.imshow(blank)
+            plt.show()
+            plt.figure
+            plt.imshow(picture)
+            plt.show()
+            plt.figure()
+        
+        return blank
+    
+    def batch_transform(self, picture_set, map_hash = None, show = False):
+        transformed_pictures = []
+        for picture in picture_set:
+            transformed_pictures.append(self.transform(picture, map_hash = map_hash, show = show))
+        return transformed_pictures
+    
 
+def animate_image_matrix(history_graph, name, fps):
+    def update_frames(frame):
 
+        return history_graph[frame]
+    plt.rcParams['animation.ffmpeg_path'] = '/usr/local/Cellar/ffmpeg/5.1.1/bin/ffmpeg'
+    fig = plt.figure()
+    plot_frame = plt.imshow(history_graph[len(history_graph) - 1])
+    
+    plt.title(name)
+    metadata = dict(title=name, artist='John Brown')
+    writer = FFMpegWriter(fps = fps, metadata=metadata)
+    
+    with writer.saving(fig, name+'.mp4', dpi=100):
+        for x in range(len(history_graph)):
+            
+            plot_frame.set_data(history_graph[x])
+            writer.grab_frame()
+        
 def save_test():
     ((test_data, test_labels) , (validation_data, validation_labels)) = Gather.download_and_normalize(dataset='cifar10', size = 1000)
     picture_test = Correlate.picture_pixel(test_data)
@@ -482,7 +761,7 @@ def working_test():
     print('Total Elapsed Time: ', time)
     
 def index_distribution_test():
-    ((test_data, test_labels) , (validation_data, validation_labels)) = Gather.download_and_normalize(dataset='cifar10', size = 1000)
+    ((test_data, test_labels) , (validation_data, validation_labels)) = Gather.download_and_normalize(dataset='cifar10', size = 5000)
     random_arrangement_grid = Encrypt.build_random_arrangement_grid(Gather.pull_sample(test_data, test_labels, picture_only=True))
     encrypted_test_data = Encrypt.encrypt_batch(test_data, random_arrangement_grid)
     decrypted_data = Encrypt.decrypt_batch(encrypted_test_data, random_arrangement_grid)
@@ -491,15 +770,14 @@ def index_distribution_test():
     picture_test.apply_association()
     dimensions = []
     latti = []
-    for row in range(0, 31):
-        for col in range(0,31):
+    for row in range(0, 28):
+        for col in range(0,28):
             print('running iteration ',(row-12)*(col-12) + col - 12, 'on :',row,col)
             lattice_test = lattice(picture_test, (row,col))
             lattice_test.expand_anchor_better()
             dimensions.append(lattice_test.lifecycle())
             latti.append(lattice_test)
-    latti[0].display_self()
-    latti[1].display_self()
+
     row_av = 0 ; col_av = 0 ; data_inc = 0
     
     # not including anything smaller than 4
@@ -522,9 +800,23 @@ def index_distribution_test():
     
     print(test_data[0][0][0])
     print(encrypted_test_data[0][random_arrangement_grid[0][0][0]][random_arrangement_grid[0][0][1]])
+    grid = []
+    for x in range(27, -1, -1):
+        row = []
+        for y in range(0, 28):
+            try:
+                row.append(str(dimensions[x*28 +y]))
+            except:
+                row.append(str(None))
+        grid.append(row)
+    s = [[str(e) for e in row] for row in grid]
+    lens = [max(map(len, col)) for col in zip(*s)]
+    fmt = '\t'.join('{{:{}}}'.format(x) for x in lens)
+    table = [fmt.format(*row) for row in s]
+    print('\n'.join(table))
+    
    
-def another_test():
-    np.random.seed = 1
+def animation_test():
     ((test_data, test_labels) , (validation_data, validation_labels)) = Gather.download_and_normalize(dataset='cifar10', size = 3000)
     random_arrangement_grid = Encrypt.build_random_arrangement_grid(Gather.pull_sample(test_data, test_labels, picture_only=True))
     print(random_arrangement_grid[14][12], random_arrangement_grid[14][13],random_arrangement_grid[14][14])
@@ -533,29 +825,97 @@ def another_test():
     # encrypt data
     encrypted_test_data = Encrypt.encrypt_batch(test_data, random_arrangement_grid)
     decrypted_data = Encrypt.decrypt_batch(encrypted_test_data, random_arrangement_grid)
-    picture_test = Correlate.picture_pixel(decrypted_data)
-    picture_test.apply_association()
-    lattice_test = lattice(picture_test, (13,14))
-    lattice_test.expand_anchor_better()
-    lattice_test.display_self()
-    
-    print(lattice_test.lifecycle())
-    
-
-    
-def lattice_transform_test():
-    ((test_data, test_labels) , (validation_data, validation_labels)) = Gather.download_and_normalize(dataset='cifar10', size = 1000)
-    random_arrangement_grid = Encrypt.build_random_arrangement_grid(Gather.pull_sample(test_data, test_labels, picture_only=True))
-    encrypted_test_data = Encrypt.encrypt_batch(test_data, random_arrangement_grid)
     picture_test = Correlate.picture_pixel(encrypted_test_data)
     picture_test.apply_association()
-    lattice_test = lattice(picture_test, (14,13))
+
+    lattice_test = lattice(picture_test, (random_arrangement_grid[13][13][0], random_arrangement_grid[13][13][1]))
     lattice_test.expand_anchor_better()
-    lattice_test.lifecycle()
-    print("Starting Transform:")
-    lattice_test.transform(encrypted_test_data[0])
-    plt.imshow(test_data[0])
+    image_matrix = lattice_test.grow(animation=True)[0]
+    lattice_test.display_self()
+    print('Image Matrix',image_matrix)
+    transformed_pictures = []
+    for map_hash in image_matrix:
+        transformed_pictures.append(lattice_test.transform(test_data[0], map_hash, use_background=True))
+    
+    #animate_image_matrix(image_matrix, 'ring bind function example', 5)
+def show_extraction(map_hash, transformed_image, base_image):
+    # outputs a side by side of a transformed image and the removed from image
+    reverse_image = base_image
+
+    unit_length = len(transformed_image[0])
+    #full_image = np.zeros((int(len(transformed_image)), int((2 + len(transformed_image[0]) + len(base_image[0]))), int(len(base_image[0][0]))))
+    full_image = []
+    for x in map_hash:
+        base_image[map_hash[x].index[0]][map_hash[x].index[1]] = np.zeros((3))
+    for row in range(len(transformed_image)):
+        new_row = []
+    
+        new_row += base_image[row].tolist()
+        full_image.append(new_row)
+    return np.array(full_image)
+    '''
+    for row in range(len(full_image)):
+        for col in range(len(full_image[row])):
+            if(col < unit_length):
+                full_image[row][col] = transformed_image[row][col]
+            else: 
+                if(col- unit_length < 2):
+                    pass
+                else:
+                    
+                    full_image[row][col] = base_image[row][col - unit_length - 2]
+    for row in range(len(transformed_image)):
+        for col in range(unit_length):
+            full_image[row][col] = transformed_image[row][col]
+    '''
+    
+def lattice_transform_test():
+    ((test_data, test_labels) , (validation_data, validation_labels)) = Gather.download_and_normalize(dataset='mnist', size = 4000)
+    random_arrangement_grid = Encrypt.build_random_arrangement_grid(Gather.pull_sample(test_data, test_labels, picture_only=True))
+    encrypted_test_data = Encrypt.encrypt_batch(test_data, random_arrangement_grid)
+    picture_test = Correlate.picture_pixel(test_data)
+    picture_test.apply_association()
+
+    #lattice_test = lattice(picture_test, (random_arrangement_grid[13][14][0], random_arrangement_grid[13][14][1]))
+    lattice_test = lattice(picture_test, (13,13))
+    lattice_test.expand_anchor_better()
+    map_hash_stack = lattice_test.lifecycle(animation=True)
+    print("Starting Transform: check for animation")
+
+    transformed_pictures = []
+    
+    for map_hash in map_hash_stack:
+        image = lattice_test.transform(encrypted_test_data[0], map_hash, show = False, base_index= (14,14))
+        transformed_pictures.append(image)
+
+    
+    
+    animate_image_matrix(transformed_pictures, 'Lattice Construction Extraction Visualization: Encrypted data', 64)
+    
+    image = lattice_test.transform(encrypted_test_data[0], map_hash_stack[20], show = False, base_index= (14,14))
+    plt.imshow(show_extraction(map_hash_stack[20], image, encrypted_test_data[0]))
     plt.show()
     plt.figure()
+  #lattice_test.display_self()
 
-lattice_transform_test()
+def mnist_test():
+    ((test_data, test_labels) , (validation_data, validation_labels)) = Gather.download_and_normalize(dataset='mnist', size = 3000)
+   
+    
+    picture_test = Correlate.picture_pixel(test_data)
+    picture_test.apply_association()
+
+    lattice_test = lattice(picture_test, (13,13))
+
+    
+    print("UNCERTAIN: ", lattice_test.uncertain)
+    lattice_test.expand_anchor_better()
+    
+    ring = lattice_test.build_ring()
+    print('outputted ring: ',ring)
+    lattice_test.display_self()
+    lattice_test.bind_ring(ring)
+    lattice_test.grow(animation=True)
+    lattice_test.grow(animation=True)
+
+index_distribution_test()

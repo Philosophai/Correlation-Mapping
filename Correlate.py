@@ -40,8 +40,6 @@ class index_pixel:
             #sorted_group = sorted(self.association_list, key= lambda x:x[0])
         else: raise ValueError('association list not formed or incorrectly formed: of type '+str(type(self.association_list)))
 
-            
-
 class picture_pixel:
     def __init__(self, data):
         self.index_pixels = [] ; self.index_pixels_hash = {}
@@ -151,7 +149,6 @@ class picture_pixel:
                 plot_frame.set_data(history_graph[x])
                 writer.grab_frame()
         
-
 def pixel_association_test():
     # pull in data 
     ((test_data, test_labels) , (validation_data, validation_labels)) = Gather.download_and_normalize(dataset='mnist', size = 3000)
@@ -351,21 +348,21 @@ def distributed_diagonal_difference_hypothesis_test(dataset = 'cifar10'):
     print("\nAVERAGE VH group by rank", VH_mean,'\nAVERAGE diag group by rank',diag_mean, '\nAVERAGE outer_VH group by rank',outer_VH_mean,'\nAVERAGE inner_diag group by rank',inner_diag_mean,'\nAVERAGE outer_diag group by rank',outer_diag_mean)
     
 def animate_pixel_select_history_test():
-    ((test_data, test_labels) , (validation_data, validation_labels)) = Gather.download_and_normalize(dataset='cifar10', size = 2000)
+    ((test_data, test_labels) , (validation_data, validation_labels)) = Gather.download_and_normalize(dataset='mnist', size = 2000)
     random_arrangement_grid = Encrypt.build_random_arrangement_grid(Gather.pull_sample(test_data, test_labels, picture_only=True))
     # encrypt data
     encrypted_test_data = Encrypt.encrypt_batch(test_data, random_arrangement_grid)
     picture_test_data = picture_pixel(test_data)
     picture_test_data.apply_association()
 
-    index = (5,5)
+    index = (13,13)
     test_data_animation_association_graph = picture_test_data.pixel_select_history_graph(index)
 
-    picture_test_data.animate_image_matrix(test_data_animation_association_graph, 'cifar10 pixel association graph (5,5)')
+    picture_test_data.animate_image_matrix(test_data_animation_association_graph, 'cifar10 encrypted pixel association graph '+str((random_arrangement_grid[13][14][0], random_arrangement_grid[13][14][1])))
 
 def association_group_test():
     ((test_data, test_labels) , (validation_data, validation_labels)) = Gather.download_and_normalize(dataset='cifar10', size = 300)
     picture_test = picture_pixel(test_data)
     picture_test.apply_association()
     picture_test.index_pixels_hash[(14,14)].build_association_group()
-association_group_test()
+
