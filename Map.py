@@ -143,7 +143,7 @@ class lattice:
         
     def display_self(self):
         max_row = 0;min_row = 0;  max_col = 0; min_col = 0
-        print("DISPLAYING LATTICE\n")
+        #print("DISPLAYING LATTICE\n")
         for x in self.map_hash:
             
             if(x[0] > max_row): max_row = x[0]
@@ -256,17 +256,17 @@ class lattice:
         #self.display_self()
         vh_anchor = [ x[1] for x in self.hash[self.placement_list[0].index].vh_association_group]
         vh_right = [ x[1] for x in self.hash[self.placement_list[1].index].vh_association_group]
-        print("VH of anchor", vh_anchor)
-        print("VH of right of anchor", vh_right)
+        #print("VH of anchor", vh_anchor)
+        #print("VH of right of anchor", vh_right)
         for index_anchor in vh_anchor:
             vh_index_anchor = [ x[1] for x in self.hash[index_anchor].vh_association_group]
             for index_right in vh_right:
                 vh_index_right = [ x[1] for x in self.hash[index_right].vh_association_group]
                 if(index_anchor != self.placement_list[1].index and index_right != self.placement_list[0].index):
                     included = len(set(vh_index_anchor).intersection(set([index_right])))
-                    print(index_anchor, index_right, set(vh_index_anchor).intersection(set([index_right])))
+                    #print(index_anchor, index_right, set(vh_index_anchor).intersection(set([index_right])))
                     if(included):
-                        print("VALID PAIR")
+                        #print("VALID PAIR")
                         self.place_by_label(self.placement_list[0].index, index_anchor, 'up')
                         self.place_by_label(self.placement_list[1].index, index_right, 'up')
                         return
@@ -307,35 +307,35 @@ class lattice:
             for index_a in range(len(vh_a)):
                 if(link_b == vh_a[index_a]):
                     bond_value += self.hash[link_a].vh_association_group[index_a][0]
-                    print('updating bond with link reference 1')
+                    #print('updating bond with link reference 1')
             for index_b in range(len(vh_b)):
                 if(link_a == vh_b[index_b]): 
-                    print('updating bond with link reference 2')
+                    #print('updating bond with link reference 2')
                     bond_value += self.hash[link_b].vh_association_group[index_b][0]
             
             for index_base in self.placement_list:
                 for value in range(len(self.hash[index_base.index].vh_association_group)):
                     if(self.hash[index_base.index].vh_association_group[value][1] == link_a):
-                        print('updating bond with core reference 1')
+                        #print('updating bond with core reference 1')
                         bond_value += self.hash[index_base.index].vh_association_group[value][0]
                     if(self.hash[index_base.index].vh_association_group[value][1] == link_b):
-                        print('updating bond with core reference 2')
+                        #print('updating bond with core reference 2')
                         bond_value += self.hash[index_base.index].vh_association_group[value][0]    
             return bond_value
         def build_ring_group():
 
-            print('uncertain expand group:\n')
+            #print('uncertain expand group:\n')
             ring_group = []
             for placed_index in self.placement_list:
                 if(placed_index.has_connections_available()):
                     ring_group += self.filter_through_placed([x[1] for x in self.hash[placed_index.index].vh_association_group])
-                    print('indice:',placed_index.index,' group:',[x[1] for x in self.hash[placed_index.index].vh_association_group])
+                    #print('indice:',placed_index.index,' group:',[x[1] for x in self.hash[placed_index.index].vh_association_group])
             ring_group = list(set(ring_group))
             return ring_group
         def find_two_groups_in_ring_group(ring_group):
         
-            for link in ring_group:
-                print(link, [x[1] for x in self.hash[link].vh_association_group])
+            #for link in ring_group:
+            #    print(link, [x[1] for x in self.hash[link].vh_association_group])
 
             groups = []
             for link_a in ring_group:
@@ -346,7 +346,7 @@ class lattice:
 
                         bond_value = compute_bond_value(link_a, vh_a, link_b, vh_b)
                             
-                        print('adding',link_a,link_b, 'with combined value: ', bond_value)
+                        #print('adding',link_a,link_b, 'with combined value: ', bond_value)
                         if(link_a > link_b):
                             groups.append((link_a, link_b, bond_value))
                         else:
@@ -360,36 +360,36 @@ class lattice:
             growth_section_start_with_two = [groups[0][1]]
             for index in range(1, len(groups)):
                 for sub_index in range(0,2):
-                    print('roups[index][sub_index]',groups[index][sub_index],'growth_section_start_with_one[-1]',growth_section_start_with_two[-1])
+                    #print('roups[index][sub_index]',groups[index][sub_index],'growth_section_start_with_one[-1]',growth_section_start_with_two[-1])
                     if(groups[index][sub_index] == growth_section_start_with_one[-1] and groups[index][sub_index] not in growth_section_start_with_one):
                         
                         if(sub_index == 0): growth_section_start_with_one.append(groups[index][1])
                         else: growth_section_start_with_one.append(groups[index][0])
                     if(groups[index][sub_index] == growth_section_start_with_two[-1]):
-                        print("INSERTING")
+                        #print("INSERTING")
                         if(sub_index == 0 and groups[index][1] not in growth_section_start_with_two): growth_section_start_with_two.append(groups[index][1])
                         else:
                             if(sub_index == 1 and groups[index][0] not in growth_section_start_with_two): growth_section_start_with_two.append(groups[index][0])
             return growth_section_start_with_one, growth_section_start_with_two
         def output_max_sized_usable_section(growth_section_start_with_one,growth_section_start_with_two):
-            print('starts with one', growth_section_start_with_one)
-            print('starts with two', growth_section_start_with_two)
-            print('Attempting section merge: intersection returns ',set(growth_section_start_with_one).intersection(set(growth_section_start_with_two)))
+            #print('starts with one', growth_section_start_with_one)
+            #print('starts with two', growth_section_start_with_two)
+            #print('Attempting section merge: intersection returns ',set(growth_section_start_with_one).intersection(set(growth_section_start_with_two)))
             growth = []
             if(len(set(growth_section_start_with_one).intersection(set(growth_section_start_with_two))) == 0):
-                print("VOID INTERSECTION CAN APPEND ONE To TWO")
+                #print("VOID INTERSECTION CAN APPEND ONE To TWO")
                 
                 for index in range(len(growth_section_start_with_one) -1, -1, -1):
                     growth.append(growth_section_start_with_one[index])
                 for index in growth_section_start_with_two:
                     growth.append(index)
-                print('growth: ', growth)
+                #print('growth: ', growth)
             else:
                 if(len(growth_section_start_with_one) > len(growth_section_start_with_two)):
                     growth = growth_section_start_with_one
                 else: growth = growth_section_start_with_two
 
-            print('Growth group', growth)
+            #print('Growth group', growth)
 
             return growth
         ring_group = build_ring_group()
@@ -453,15 +453,15 @@ class lattice:
             try:
                 new_link = ring[ring_index][1][1]
             except:
-                print("ERROR WITH PLACING:",ring[ring_index][0] )
-                print("Couldn't find next neighbour in this group. Lets look")
+                #print("ERROR WITH PLACING:",ring[ring_index][0] )
+                #print("Couldn't find next neighbour in this group. Lets look")
                 for node_index in ring_group:
                     if(node_index not in ring[ring_index][1]):
-                        print('examining', node_index, )
+                       #print('examining', node_index, )
                         neighbours = list(set(ring_group).intersection( set([x[1] for x in self.hash[node_index].vh_association_group])))
-                        print('neighbours:', neighbours)
+                        #print('neighbours:', neighbours)
                         if(ring[ring_index][0] in neighbours):
-                            print('found a match at', node_index," group: ", neighbours)
+                            #print('found a match at', node_index," group: ", neighbours)
                             ring[ring_index][1].append(node_index)
 
 
@@ -521,25 +521,25 @@ class lattice:
 
         def judge_configurations(conflict_free_configurations, section):
             judged_configurations = []
-            print('Configuration Judgement\n')
+            #print('Configuration Judgement\n')
             for conf in conflict_free_configurations:
                 judge_value = 0
-                print('JUDGING CONF', conf)
+                #print('JUDGING CONF', conf)
                 for index in range(len(conf)):
-                    print('desired_adjacency: ')
-                    print(section[index], self.filter_through_placed([ x[1] for x in self.hash[section[index]].vh_association_group], reverse=True))
+                    #print('desired_adjacency: ')
+                    #print(section[index], self.filter_through_placed([ x[1] for x in self.hash[section[index]].vh_association_group], reverse=True))
                     wanted_adjacency_list = self.filter_through_placed([ x[1] for x in self.hash[section[index]].vh_association_group], reverse=True)
                     for wanted_adjacency in wanted_adjacency_list:
                         map_index = self.placement_hash[wanted_adjacency].map_index
-                        print(wanted_adjacency, 'at', map_index)
+                        #print(wanted_adjacency, 'at', map_index)
                         x_dif = abs(map_index[0] - conf[index][0]) ; y_dif = abs(map_index[1] - conf[index][1])
                         if(x_dif != y_dif and x_dif < 2 and y_dif < 2):
-                            print('yay got a positive')
+                            #print('yay got a positive')
                             judge_value += 1
                 judged_configurations.append([judge_value, conf])
             return sorted(judged_configurations, key= lambda x:x[0], reverse=True)
         
-        print('Link Index, index vh group filtered through in-place')
+        #print('Link Index, index vh group filtered through in-place')
         proximity_restrictions = []
         for link in section:
             proximity_restrictions.append([link, self.filter_through_placed([ x[1] for x in self.hash[link].vh_association_group], reverse=True)])
@@ -552,12 +552,12 @@ class lattice:
             return False
 
         conflict_free_configurations = possible_configurations_generator(possible_configurations)
-        for x in conflict_free_configurations:
-            print(x)
+        #for x in conflict_free_configurations:
+        #    print(x)
         judged = judge_configurations(conflict_free_configurations, section)
-        for x in judged:
-            print(x)
-        print('arbitrarily picked from judged:', judged[0])
+        #for x in judged:
+        #    print(x)
+        #print('arbitrarily picked from judged:', judged[0])
         best = judged[0][1]
 
         map_states = []
@@ -607,9 +607,9 @@ class lattice:
 
         bounds = self.find_ring_bounds()
         row_min = bounds[0] ; row_max = bounds[1] ; col_min = bounds[2] ; col_max = bounds[3]
-        print('Bounds:', bounds)
-        for link in ring:
-            print(link)
+        #print('Bounds:', bounds)
+        #for link in ring:
+        #    print(link)
         
         # place anchor
         alpha_link = ring[0][0] ; alpha_dock = False;  beta_link = ring[1][0] ; beta_dock = False
@@ -617,22 +617,22 @@ class lattice:
             if(alpha_link in [x[1] for x in self.hash[node_index.index].vh_association_group]): alpha_dock = node_index
             if(beta_link in [x[1] for x in self.hash[node_index.index].vh_association_group]): beta_dock = node_index
             
-        print(alpha_link, ' being placed next to ', alpha_dock.index)
-        print(beta_link, ' being placed next to ', beta_dock.index)
+        #print(alpha_link, ' being placed next to ', alpha_dock.index)
+        #print(beta_link, ' being placed next to ', beta_dock.index)
         difference_between_docks = (beta_dock.map_index[0] - alpha_dock.map_index[0] , beta_dock.map_index[1] - alpha_dock.map_index[1])
-        print(difference_between_docks)
+        #print(difference_between_docks)
         # now i have the direction alpha will place beta
 
         # need to place alpha in correct position
         options = alpha_dock.find_available_connections()
-        print(options)
+        #print(options)
         locations = find_map_indices_from_options(alpha_dock.map_index, options)
-        print(locations)
+        #print(locations)
         neighbour_choice = None
         for loc in locations:
             if(neighbour_of( loc[0], beta_dock.map_index)): neighbour_choice = loc
         
-        print('chosen location: ', neighbour_choice)
+        #print('chosen location: ', neighbour_choice)
         map_states = []
         if(animation): map_states = [copy_map_hash(self)]
         # place alpha 
@@ -641,9 +641,9 @@ class lattice:
         # place beta off alpha
         self.place_by_label( alpha_link, beta_link, extract_direction_from_difference(difference_between_docks))
         if(animation): map_states.append(copy_map_hash(self)) 
-        print(ring[2])
+        #print(ring[2])
         for link in range(2, len(ring)):
-            print(link, bounds)
+            #print(link, bounds)
             
             location_direction = self.find_next_spot(ring[link][1][0], bounds) ; direction = location_direction[1]
             #print('index to be placed',ring[link][0],'location:', location_direction)
@@ -654,7 +654,7 @@ class lattice:
         return None
 
     
-    def grow(self, animation = False):
+    def grow(self, animation = False, nested = False):
         try:
             start = time()
             ring = self.build_ring()
@@ -665,9 +665,11 @@ class lattice:
             
             return [map_hash_stack, True]
         except:
-            dimensions = self.display_self()
-            print("Made it this far before an error.", dimensions)
-            
+            if(nested):
+                dimensions = self.display_self()
+            #print("Made it this far before an error.", dimensions)
+            else: 
+                dimensions = None
             return [dimensions, False]
 
     def lifecycle(self, animation = False):
@@ -918,4 +920,3 @@ def mnist_test():
     lattice_test.grow(animation=True)
     lattice_test.grow(animation=True)
 
-lattice_transform_test()
