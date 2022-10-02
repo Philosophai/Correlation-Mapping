@@ -252,7 +252,14 @@ class lattice:
                 if(in_placed):
                     passed.append(staged_item)
         return passed
+    def uncertain_expand_anchor(self):
+        vh_anchor = [ x[1] for x in self.hash[self.placement_list[0].index].vh_association_group]
+        vh_diag = [ x[1] for x in self.hash[self.placement_list[0].index].diag_association_group]
+        new_set = vh_anchor + vh_diag
+        print(new_set)
+        return
     def expand_anchor_better(self):
+   
         #self.display_self()
         vh_anchor = [ x[1] for x in self.hash[self.placement_list[0].index].vh_association_group]
         vh_right = [ x[1] for x in self.hash[self.placement_list[1].index].vh_association_group]
@@ -912,11 +919,4 @@ def mnist_test():
     
     print("UNCERTAIN: ", lattice_test.uncertain)
     lattice_test.expand_anchor_better()
-    
-    ring = lattice_test.build_ring()
-    print('outputted ring: ',ring)
-    lattice_test.display_self()
-    lattice_test.bind_ring(ring)
-    lattice_test.grow(animation=True)
-    lattice_test.grow(animation=True)
 

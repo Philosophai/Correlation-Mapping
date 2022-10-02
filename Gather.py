@@ -71,3 +71,4 @@ def gather_unit_test():
     cifar10_sample = pull_sample(cifar10_test_data, cifar10_test_labels)
     print('Running plot_sample on Cifar10')
     plot_sample(cifar10_sample, cifar10_name_hash)
+
