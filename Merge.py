@@ -1,14 +1,17 @@
-from operator import inv
-from symbol import and_test
-from tracemalloc import start
+from hashlib import new
 import math
+from multiprocessing.sharedctypes import Value
 import Gather
 import Encrypt
 import Correlate
 import Map
 
 # I know the code is long as fuck, fuck it.
-
+'''
+Remove after DEBUG:
+stop arg in update_map and call to it in bounded_align .. merge_restricted
+generate_currentmap shit
+'''
 
 def show_map( map_example, non_indexed = False):
     max_row = 0;min_row = 0;  max_col = 0; min_col = 0
@@ -31,7 +34,11 @@ def show_map( map_example, non_indexed = False):
                 if(non_indexed):
                     row.append(str(map_example[(x,y)]))
                 
-                else: row.append(str(map_example[(x,y)].index))
+                else: 
+                    if(map_example[(x,y)] != (None, None)):
+                        row.append(str(map_example[(x,y)].index))
+                    else:
+                        row.append(str(None))
             except:
                 row.append(str(None))
         grid.append(row)
@@ -138,14 +145,15 @@ class orientation_node():
         #show_map(rotate_map(inverted_map, 3))
         #rint("RIGHT")
         #how_map(rotate_map(new_map, 3))
+        print('for index, ')
         print("Orientation Similarity: base:",base,'\n90:',turn_90,'\n180:', turn_180, '\n270:', turn_270,"base:",base_invert,'\ninv 90:',inverted_90,'\ninv 180:', inverted_180, '\ninv 270:', inverted_270)
         turns = [base, turn_90, turn_180, turn_270, base_invert, inverted_90, inverted_180, inverted_270 ]
-        print(turns)
+        
         index = turns.index(max(turns))
         if(index > 3):
             # true for vertically invert
-            return [True, index - 4]
-        return [False, index]
+            return [True, index - 4, max(turns)]
+        return [False, index, max(turns)]
 
     def orient_compare(self, new_map):
         map_index = None
@@ -296,6 +304,51 @@ class orientation_node():
         pass
 
                 
+def rotate_align(anchor_map, map_set, indice_list):
+    # I want them all to be the same orientation
+    oriented_maps = {}
+    orientation_node_set = []
+    for map_example in map_set:
+        node_in_anchor = []
+        for index in map_set[map_example]:
+            if(map_set[map_example][index].index in indice_list ):
+                node_in_anchor.append([index, map_set[map_example][index].index])
+        orientation_node_set.append([map_example, node_in_anchor])
+    
+    relations = []
+    print("ORIENTATION")
+    for x in orientation_node_set:
+        print(x)
+        max_orientation_value = -1000000
+        nodes_to_be_oriented = [y[1] for y in x[1]]
+        for node in nodes_to_be_oriented:
+            print(node)
+            new_node = orientation_node(node)
+            new_node.map_orient(anchor_map)
+            
+            #show_map(map_set[x[0]])
+            print("\n\nOPERATING ON :", x[0], 'specifically at index ', node)
+            invert_turns_value = new_node.orientation_analyze(map_set[x[0]])
+            print("VERTICALLY INVERT:", invert_turns_value[0],' ROTATE:', invert_turns_value[1])
+            if(max_orientation_value < invert_turns_value[2]):
+                max_orientation_value = invert_turns_value[2]
+                if(invert_turns_value[0]):
+                    print('VERTICALLY INVERTED')
+                    oriented_maps[x[0]] = rotate_map(vertically_invert_map( map_set[x[0]]), invert_turns_value[1] )
+                else:
+                    oriented_maps[x[0]] = rotate_map(map_set[x[0]], invert_turns_value[1])
+            print("ANCHOR")
+            show_map(anchor_map)
+            print("ORIGINAL")
+            show_map(map_set[x[0]])
+            print("TRANSFORMED")
+            show_map(oriented_maps[x[0]])
+    print("ANCHOR")
+    show_map(anchor_map)
+    
+
+    
+    return oriented_maps
 
 def central_align(anchor_map, map_set, indice_list):
     print("CENTRAL ALIGNMENT")
@@ -303,7 +356,7 @@ def central_align(anchor_map, map_set, indice_list):
     shift_set = {}
     for map_example in map_set:
         new_map = {}
-        print(map_example) ; shift = []
+        print('\n\n\nMAP SET INDEX:',map_example) ; shift = []
         for other_index in map_set[map_example]:
             if(map_set[map_example][other_index].index in indice_list):
                 print("FOUND ",map_set[map_example][other_index].index,' in anchor! from ', map_example)
@@ -317,63 +370,29 @@ def central_align(anchor_map, map_set, indice_list):
         for other_index in map_set[map_example]:
             new_map[(other_index[0] + difference[0],other_index[1] + difference[1])] = map_set[map_example][other_index]
         shift_set[map_example] = new_map
+        print('\n\n\n')
     return shift_set
 
-                
+def restrict(map_set, bounds):
+    new_set = {}
+    for map in map_set:
+        new_map = {}
+        for indice in map_set[map]:
+            if(indice[0] >= bounds[0] and indice[0] <= bounds[2] and indice[1] >= bounds[1] and indice[1] <= bounds[3]):
+                new_map[indice] = map_set[map][indice]
+        new_set[map] = new_map               
 
+    return new_set
                     
 
 
 
-        
-
-
-
-def rotate_align(anchor_map, map_set, indice_list):
-    # I want them all to be the same orientation
-    oriented_maps = {}
-    orientation_node_set = []
-    for map_example in map_set:
-        node_in_anchor = []
-        for index in map_set[map_example]:
-            if(map_set[map_example][index].index in indice_list):
-                node_in_anchor.append([index, map_set[map_example][index].index])
-        orientation_node_set.append([map_example, node_in_anchor])
     
-    relations = []
-    print("ORIENTATION")
-    for x in orientation_node_set:
-        print(x)
-        nodes_to_be_oriented = [y[1] for y in x[1]]
-        for node in nodes_to_be_oriented:
-            print(node)
-            new_node = orientation_node(node)
-            new_node.map_orient(anchor_map)
-            print(x)
-            #show_map(map_set[x[0]])
-            invert_turns = new_node.orientation_analyze(map_set[x[0]])
-            print("VERTICALLY INVERT:", invert_turns[0],' ROTATE:', invert_turns[1])
-            if(invert_turns[0]):
-                print('VERTICALLY INVERTED')
-                oriented_maps[x[0]] = rotate_map(vertically_invert_map( map_set[x[0]]), invert_turns[1] )
-            else:
-                oriented_maps[x[0]] = rotate_map(map_set[x[0]], invert_turns[1])
-            print("ANCHOR")
-            show_map(anchor_map)
-            print("ORIGINAL")
-            show_map(map_set[x[0]])
-            print("TRANSFORMED")
-            show_map(oriented_maps[x[0]])
-    print("ANCHOR")
-    show_map(anchor_map)
-    print("SHOWING ALL THE NON_ORIENTED VS OREINTED ")
-
-    
-    return oriented_maps
 
 def pull_indice_list(map):
     indice_list = []
     for x in map:
+       
         indice_list.append(map[x].index)
     return indice_list
 
@@ -381,6 +400,7 @@ def pull_indice_list(map):
 class Overlaid_Lattice():
     def __init__(self):
         self.map = {}
+
     def initiate_map(self, anchor_set):
         base_key = list(anchor_set.keys())[0]
         for x in anchor_set[base_key]:
@@ -389,9 +409,34 @@ class Overlaid_Lattice():
         for key in anchor_set:
             for index in anchor_set[key]:
                 if(anchor_set[key][index].index not in self.map[index]):
-                    self.map[index][anchor_set[key][index].index] = 1
+                    self.map[index][anchor_set[key][index].index] = [ anchor_set[key][index], 1]
                 else:
-                    self.map[index][anchor_set[key][index].index] += 1
+                    self.map[index][anchor_set[key][index].index][1] += 1
+        
+    def update_map(self, map_set, bounds, stop = False):
+        for row in range(bounds[0], bounds[2] + 1):
+            for col in range(bounds[1], bounds[3] + 1):
+                if((row, col) not in self.map):
+                    self.map[(row, col)] = {}
+        
+        for map in map_set:
+            for index in map_set[map]:
+                #print("UPDATE MAP", index)
+                if(index[0] == bounds[2] or index[0] == bounds[0] or index[1] == bounds[3] or index[1] == bounds[1]):
+                    print(map, index)
+                    if(map_set[map][index].index not in self.map[index]): 
+
+                        self.map[index][map_set[map][index].index] = [ map_set[map][index], 1]
+                        print('TYPE CHECK: ',type(map_set[map][index]),Map.node)
+
+
+                
+                
+                    else:
+                        self.map[index][map_set[map][index].index][1] += 1
+        
+        
+
         
     def generate_current_map(self):
         minimum_map_row = 0 ; maximum_map_row = 0;
@@ -403,8 +448,8 @@ class Overlaid_Lattice():
             if(key[1] > maximum_map_col): maximum_map_col = key[1]
         print('printing bounds')
         print(max(abs(minimum_map_row) , maximum_map_row,abs(minimum_map_col), maximum_map_col) + 3)
-        print("printing map values")
-        new_map = {} ; map_added = []
+        
+        new_map = {} ; 
         visited = {}
         for interior_r_bounds in range(0, max(abs(minimum_map_row) , maximum_map_row,abs(minimum_map_col), maximum_map_col) + 1):
 
@@ -413,20 +458,25 @@ class Overlaid_Lattice():
                     if((key_r, key_c) not in visited):
                         try:
                             new_map[(key_r, key_c)] = [(None, None), -1]
-                            check_if_real_sloppy = self.map[(key_r, key_c)]
+                            
                             for possible_index in self.map[(key_r, key_c)]:
-                                if(self.map[(key_r, key_c)][possible_index] > new_map[(key_r, key_c)][1]):
-
-                                    new_map[(key_r, key_c)] = [possible_index, self.map[(key_r, key_c)][possible_index]]
+                                if(self.map[(key_r, key_c)][possible_index][1] > new_map[(key_r, key_c)][1]):
+                                    
+                                    new_map[(key_r, key_c)] = [self.map[(key_r, key_c)][possible_index][0], self.map[(key_r, key_c)][possible_index][1]]
                             
 
                         except:
 
                             print((key_r, key_c), 'not in map!')
                         visited[(key_r, key_c)] = True
+        print("printing map values")
         for m in new_map:
+           
             new_map[m] = new_map[m][0]
-            print(m, new_map[m])
+ 
+                
+            print(m, new_map[m].index)
+   
         return new_map
 
         
@@ -533,17 +583,20 @@ class Compound_Lattice():
 
 
 
-    def merge_restricted(self, restricted_oriented_maps):
+    def merge_restricted_anchor(self, restricted_oriented_maps):
         # zeroeth contains all the nodes
         
 
         centralized = central_align(restricted_oriented_maps[list(restricted_oriented_maps.keys())[0]], restricted_oriented_maps, pull_indice_list(restricted_oriented_maps[list(restricted_oriented_maps.keys())[0]]))
         for c in centralized:
             show_map(centralized[c])
-        new_overlaid = Overlaid_Lattice()
-        new_overlaid.initiate_map(centralized)
-        show_map(new_overlaid.generate_current_map(), True)
+        
+        overlaid = Overlaid_Lattice()
+        
+        overlaid.initiate_map(centralized)
 
+        show_map(overlaid.generate_current_map())
+        return overlaid
         
 
     def bounded_align_anchor(self, anchor_map_index, bounds):
@@ -568,7 +621,130 @@ class Compound_Lattice():
             restricted_oriented_maps[oriented_map] = restrict
         print('number of restricted maps', len(restricted_oriented_maps))
    
-        self.merge_restricted(restricted_oriented_maps)
+        return self.merge_restricted_anchor(restricted_oriented_maps)
+        
+    def merge_restricted(self, restricted, Overlaid, bounds, stop = False):
+        print("SHOWING RESTRICTED")
+        for map in restricted:
+            print('restricted:',map)
+            show_map(restricted[map])
+            if((0,0) in restricted[map]):
+                print("CENTRAL NODE:",restricted[map][(0,0)].index,'\n')
+        Overlaid.update_map(restricted, bounds, stop)
+        return Overlaid
+
+    def bounded_align(self, Overlaid_anchor, bounds, stop = False):
+        map_in_bounds = {} ; anchor_map = Overlaid_anchor.generate_current_map()
+        anchor_indices = pull_indice_list(anchor_map)
+        print("SHOWING THE BOUNDED ALIGN START MAP")
+        show_map(anchor_map)
+        
+        # Here I need to write some function that grows the function
+        '''
+        pseudo:
+        take all the maps and align + centralize them to the anchor
+        then restrict 
+        also include nodes that have two nodes in the anchor group?
+        
+        
+        '''
+        expanded_nodes = {}
+
+        for indice in anchor_map:
+            print('printing INDICE:', anchor_map[indice].index)
+            #for indice_all in self.map_list:
+                #include_n = 0
+                #for sub_index in self.map_list[indice_all]:
+                #    if(self.map_list[indice_all][sub_index] in anchor_map):
+
+            try:
+
+                expanded_nodes[anchor_map[indice].index] = self.map_list[anchor_map[indice].index]
+                show_map(expanded_nodes[anchor_map[indice].index])
+                print("SUCCESS at", anchor_map[indice].index, indice, anchor_map[indice])
+            except:
+                print("FAILED at", anchor_map[indice].index, indice, anchor_map[indice])
+        
+        # prerestrict around origin to maintain validity.
+        proximity_added = {}
+        for map in self.map_list:
+            count = 0
+            if(len(self.map_list[map]) > 3):
+                #print(map,self.map_list[map])
+                for r in range(-1,2):
+                    for c in range(-1,2):
+                        try:
+                            if(self.map_list[map][(r,c)].index in anchor_indices and map not in anchor_indices and map not in proximity_added):
+                                count += 1
+                                if(count > 1):
+                                    print("ADDED:", map)
+                                    proximity_added[map] = self.map_list[map]
+                        except:
+                            pass
+        #show_map(self.map_list[(14,14)])
+        #show_map(self.map_list[(14,15)])
+        #show_map(self.map_list[(15,13)])
+        #show_map(self.map_list[(15,16)])
+        for indice in self.map_list[(16,13)]:
+            print(indice, self.map_list[(16,13)][indice].index)
+        for key in proximity_added:
+            expanded_nodes[key] = proximity_added[key]
+        show_map(self.map_list[(16,13)])
+        print("Proximity Added:", proximity_added.keys())
+        print('Expanded Nodes:', expanded_nodes.keys())
+        #show_map(self.map_list[(16,16)])
+
+        
+                
+
+
+                
+        
+        print("PRE OREINTED (16,14)")
+        oriented = rotate_align(anchor_map, expanded_nodes, anchor_indices)
+        print("\n\nDISPLAYING MAP\n")
+        for map in oriented:
+            print('\nnext map:',map)
+            show_map(oriented[map])
+
+        
+        centralized = central_align(anchor_map, oriented, anchor_indices)
+
+        print("\n\nCENTRALIZED\n")
+
+        for map in centralized:
+            print("MAP CENTRALIZED", map)
+            show_map(centralized[map])
+
+        restricted = restrict(centralized, bounds)
+
+        print("\n\nRESTRICTED SET\n")
+
+        for map in restricted:
+            print("RESTRICTED:", map)
+            show_map(restricted[map])
+        
+        Overlaid_anchor = self.merge_restricted(restricted, Overlaid_anchor, bounds, stop)
+        print('\n\nPRINTING MAP KEYS')
+        for key in Overlaid_anchor.map:
+            print(key, Overlaid_anchor.map[key])
+        
+        final_map = Overlaid_anchor.generate_current_map()
+        print("FINAL MAP")
+        for x in final_map:
+            print('x:',x,'final_map[x]',final_map[x],' final_map[x].index:', final_map[x].index)
+        show_map(final_map)
+        
+        return Overlaid_anchor
+
+        
+        
+
+
+
+
+
+        
         
         
 
@@ -586,7 +762,24 @@ def working_test():
     test = Compound_Lattice(test_data)
     test.display_map((13,13))
     test.find_power_anchor()
-    test.bounded_align_anchor(test.power_anchor_list[1][0], (0,0,1,1))
+    overlaid = test.bounded_align_anchor(test.power_anchor_list[1][0], (0,0,1,1))
+    old_map = overlaid.generate_current_map()
+    new_overlaid = test.bounded_align(overlaid, (-1, -1, 2, 2))
+    new_map = new_overlaid.generate_current_map()
+    print("ANCHOR OVERLAID")
+    show_map(old_map)
+    print('\n\nNEW OVERLAID')
+    show_map(new_map)
+    print('MAP (15,16)')
+    show_map(test.map_list[(16,16)])
+    new_overlaid = test.bounded_align(new_overlaid, (-2, -2, 3, 3), True)
+    new_map = new_overlaid.generate_current_map()
+
+    show_map(new_map)
+    #new_overlaid = test.bounded_align(new_overlaid, (-3, -3, 4, 4))
+    #new_overlaid = test.bounded_align(new_overlaid, (-4, -4, 5, 5))
+    #new_map = new_overlaid.generate_current_map()
+    #show_map(new_map)
     #orientation_test = orientation_node((test.power_anchor_list[1][0]))
     #orientation_test.collect_orientations(test.map_list)
 

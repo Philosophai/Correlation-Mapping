@@ -20,6 +20,8 @@ class index_pixel:
     def __init__(self, index):
         self.index = index
         self.association_list = []
+        self.vh_association_group = None
+        self.diag_association_group = None
 
     def collect_data(self, data):
         self.data = []
