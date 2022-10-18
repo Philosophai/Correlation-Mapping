@@ -300,8 +300,7 @@ class orientation_node():
         
     def find_orientation(self):
         pass
-
-                
+              
 def rotate_align(anchor_map, map_set, indice_list):
     # I want them all to be the same orientation
     oriented_maps = {}
@@ -353,7 +352,7 @@ def central_align(anchor_map, map_set, indice_list):
     print(anchor_map) 
     shift_set = {}
     for map_example in map_set:
-        new_map = {} ; best_similarity_value = 0
+        new_map = {}
         print('\n\n\nMAP SET INDEX:',map_example) ; shift = []
         for other_index in map_set[map_example]:
             if(map_set[map_example][other_index].index in indice_list):
@@ -364,21 +363,12 @@ def central_align(anchor_map, map_set, indice_list):
                         print("FOUND MATCHING NODE IN ANCHOR ", anchor_map[anchor_index].index)
                         print("other index: ", other_index, 'anchor_index: ', anchor_index)
                         difference = (anchor_index[0] - other_index[0], anchor_index[1] - other_index[1])
-                        print(difference,'applied to other_node = ', (other_index[0] + difference[0],other_index[1] + difference[1]) )   
-                        temp_new_map = {} ; similarity_value = 0
-                        for other_index in map_set[map_example]:
-                            temp_new_map[(other_index[0] + difference[0],other_index[1] + difference[1])] = map_set[map_example][other_index]
-                        for temp_index in temp_new_map:
-                            try:
-                                if(temp_new_map[temp_index].index == anchor_map[temp_index].index):
-                                    similarity_value += 1
-                            except:
-                                pass
-                        if(similarity_value > best_similarity_value):
-                            new_map = temp_new_map ; best_similarity_value = similarity_value
+                        print(difference,'applied to other_node = ', (other_index[0] + difference[0],other_index[1] + difference[1]) )     
+        for other_index in map_set[map_example]:
+            new_map[(other_index[0] + difference[0],other_index[1] + difference[1])] = map_set[map_example][other_index]
         shift_set[map_example] = new_map
         print('\n\n\n')
-    return shift_set             
+    return shift_set
 
 def restrict(map_set, bounds):
     new_set = {}
@@ -390,11 +380,6 @@ def restrict(map_set, bounds):
         new_set[map] = new_map               
 
     return new_set
-                    
-
-
-
-    
 
 def pull_indice_list(map):
     indice_list = []
@@ -403,104 +388,169 @@ def pull_indice_list(map):
         indice_list.append(map[x].index)
     return indice_list
 
+
+class position_node():
+    def __init__(self, index):
+        self.index = index
+        self.positions = {(1,0): {},(1,1): {},(0,1): {},(-1,1): {},(-1,0): {},(-1,-1): {},(0,-1): {},(1,-1): {} }
         
-class Overlaid_Lattice():
-    def __init__(self):
-        self.map = {}
-
-    def initiate_map(self, anchor_set):
-        base_key = list(anchor_set.keys())[0]
-        for x in anchor_set[base_key]:
-            if(x not in self.map):
-                self.map[x] = {}
-        for key in anchor_set:
-            for index in anchor_set[key]:
-                if(None not in anchor_set[key][index].index):
-                    print(index, self.map[index])
-                    if(anchor_set[key][index].index not in self.map[index]):
-                        self.map[index][anchor_set[key][index].index] = [ anchor_set[key][index], 1]
-                    else:
-                        self.map[index][anchor_set[key][index].index][1] += 1
-        
-    def update_map(self, map_set, bounds, stop = False):
-        for row in range(bounds[0], bounds[2] + 1):
-            for col in range(bounds[1], bounds[3] + 1):
-                if((row, col) not in self.map):
-                    self.map[(row, col)] = {}
-        
-        for map in map_set:
-            for index in map_set[map]:
-                #print("UPDATE MAP", index)
-                if(index[0] == bounds[2] or index[0] == bounds[0] or index[1] == bounds[3] or index[1] == bounds[1]):
-                    print(map, index)
-                    if(map_set[map][index].index not in self.map[index]): 
-
-                        self.map[index][map_set[map][index].index] = [ map_set[map][index], 1]
-                        print('TYPE CHECK: ',type(map_set[map][index]),Map.node)
-
-
-                
-                
-                    else:
-                        self.map[index][map_set[map][index].index][1] += 1
-        
-        
-
-        
-    def generate_current_map(self):
-        minimum_map_row = 0 ; maximum_map_row = 0;
-        minimum_map_col = 0 ; maximum_map_col = 0;
-        for key in self.map:
-            if(key[0] < minimum_map_row): minimum_map_col = key[0]
-            if(key[1] < minimum_map_col): minimum_map_col = key[1]
-            if(key[0] > maximum_map_row): maximum_map_row = key[0]
-            if(key[1] > maximum_map_col): maximum_map_col = key[1]
-        print('printing bounds')
-        print(max(abs(minimum_map_row) , maximum_map_row,abs(minimum_map_col), maximum_map_col) + 3)
-        
-        new_map = {} ; 
-        visited = {}
-        for interior_r_bounds in range(0, max(abs(minimum_map_row) , maximum_map_row,abs(minimum_map_col), maximum_map_col) + 1):
-
-            for key_r in range(interior_r_bounds,-1 * interior_r_bounds,-1 ):
-                for key_c in range( interior_r_bounds,-1 * interior_r_bounds, -1 ):
-                    if((key_r, key_c) not in visited):
-                        try:
-                            new_map[(key_r, key_c)] = [(None, None), -1]
-                            
-                            for possible_index in self.map[(key_r, key_c)]:
-                                if(self.map[(key_r, key_c)][possible_index][1] > new_map[(key_r, key_c)][1]):
-                                    
-                                    new_map[(key_r, key_c)] = [self.map[(key_r, key_c)][possible_index][0], self.map[(key_r, key_c)][possible_index][1]]
-                            
-
-                        except:
-
-                            print((key_r, key_c), 'not in map!')
-                        visited[(key_r, key_c)] = True
-        print("printing map values")
-        for m in new_map:
-           
-            new_map[m] = new_map[m][0]
+    def position_compile(self, map_list):
+        for map in map_list:
+            for index in map_list[map]:
+                if(map_list[map][index].index == self.index):
+                     #print("found", self.index,' in map', map)
+                     for r in range(-1, 2):
+                        for c in range(-1, 2):
+                            try:
+                                comparative_index = (index[0] + r, index[1] + c)
+                                if(map_list[map][comparative_index].index in self.positions[(r,c)]):
+                                    self.positions[(r,c)][map_list[map][comparative_index].index] += 1
+                                else:
+                                    self.positions[(r,c)][map_list[map][comparative_index].index] = 1
+                            except:
+                                pass
  
+    def display_positions(self):
+        print("INDICE::: ",self.index)
+        for index in self.positions:
+            print('relative index:',index,'\n\n')
+            for key in self.positions[index]:
+                print('\tkey:',key,': ', self.positions[index][key])
+    
+    def evaluate_map(self, map):
+        for index in map:
+            if(map[index].index == self.index):
+                score = 0
+                for r in range(-1, 2):
+                    for c in range(-1, 2):
+                        try:
+                            score += self.positions[(r,c)][map[(index[0] + r, index[1] + c)].index]
+                        except:
+                            pass
+                return score
+
+class Position_Lattice():
+    def __init__(self, map_list):
+        self.indices = {} ; self.map = None
+        for map in map_list:
+            for index in map_list[map]:
+                if(map_list[map][index].index not in self.indices):
+                    self.indices[map_list[map][index].index] = position_node(map_list[map][index].index)
+        for p_node in self.indices:
+            print(self.indices[p_node].index)
+            self.indices[p_node].position_compile(map_list)
+            #show_map(map_list[self.indices[p_node].index])
+            #self.indices[p_node].display_positions()
+        #print('score:',self.indices[(14,14)].evaluate_map(map_list[(14,14)]))
+    def evaluate_map(self, map):
+        score = 0
+        for index in self.indices:
+            score += self.indices[index].evaluate_map(map)
+        return score
+    def optimize_map(self):
+        def in_map(current_map, added_index):
+
+            for p in current_map:
+                if(current_map[p].index == added_index):
+                    return p
+            return False
+
+        def valid_new_position(current_map, added_index, new_position):
+            if(new_position in current_map):
+                return False
+            print('valid_new_position check for ', added_index.index, 'at: ', new_position)
+            print('current map:', current_map)
+            
+            for index in self.indices:
+                index_position = in_map(current_map, index)
+                if(index_position):
+                    print('print index position', index)
+                    
+                    for p in self.indices[index].positions:
+                        if(added_index.index in self.indices[index].positions[p] and new_position == ( index_position[0] + p[0] , index_position[1] + p[1]) ):
+                            print("FOUND THE RIGHT SPOT SO ITS GOOD")
+                            return True
+            return False
+            
+        def compile_possibilites(current_map, added_index, new_position, max_depth, current_depth):
+            # check if the new_position is unoccupied
+            maps = [] ; current_depth += 1
+            
+            if(not in_map(current_map, added_index.index)):
+                if(valid_new_position(current_map, added_index, new_position)):
+                # check if the added_index is already in the map
                 
-            print(m, new_map[m].index)
-   
-        return new_map
+                    # make a new map
+                    temp = current_map.copy()
+                    temp[new_position] = added_index
+                    if(current_depth == max_depth):
+                        return temp
+                    for p in added_index.positions:
+                        for element in added_index.positions[p]:
+                            maps.append(compile_possibilites( temp, self.indices[element], (new_position[0] + p[0], new_position[1] + p[1]), max_depth, current_depth))
+            
+            return maps
+
+        def unwrap_compile(maps, current_depth, desired_depth, unwrapped_maps):
+            current_depth += 1 ; loop_count = 0
+            if(desired_depth == current_depth):
+                loop_count = len(unwrapped_maps)
+            for map in maps:
+                if(desired_depth == current_depth):
+                    if(len(map) > 1):
+                        unwrapped_maps[loop_count] = map
+                        loop_count += 1
+                    
+                else:
+                    unwrap_compile(map, current_depth, desired_depth, unwrapped_maps)
+                 
+        
+        print("OPTIMIZE MAP")
+        maps = []
+        map_start = {}
+        map_start[(0,0)] =  self.indices[list(self.indices.keys())[0]]
+        print('MAP Start:',map_start[(0,0)].index)
+        for p in map_start[(0,0)].positions:
+            for element in map_start[(0,0)].positions[p]:
+                print('Position:',p,' element :', element)
+                maps.append(compile_possibilites(map_start, self.indices[element], p, 3, 0))
+        
+        for index in self.indices:
+            print('Index:',index)
+            for p in self.indices[index].positions:
+                print(p,':',self.indices[index].positions[p])
+        print("PRINTING MAPS:", len(maps))
+        
+        unwrapped = {} ; unwrap_compile(maps, 0,3, unwrapped)
+        max_score = 0 ; optimal_map = {}
+        for m in unwrapped:
+            print(m)
+            show_map(unwrapped[m])
+            score = self.evaluate_map(unwrapped[m])
+            if(max_score < score):
+                max_score = score; optimal_map = unwrapped[m]
+            print("SCORE OF ABOVE MAP IS: ", self.evaluate_map(unwrapped[m]))
+        
+        print("SHOWING THE OPTIMAL MAP:")
+        show_map(optimal_map)
+        print("SCORE OF ABOVE MAP IS: ", max_score)
+        return optimal_map
+
+
+
+
 
     
-            
+
 
         
-
-
-
 class Compound_Lattice():
     def __init__(self, data):
         self.map_list = {} 
         self.picture  = Correlate.picture_pixel(data)
         self.picture.apply_association()
         self.uncertain = False
+        self.buffer = 0
         height = data[0].shape[0] ; width = data[0].shape[1]
         for row in range(0,height):
             for col in range(0, width):
@@ -510,39 +560,12 @@ class Compound_Lattice():
                     new_lattice.lifecycle()
                     if(new_lattice.uncertain):
                         self.uncertain = True
+                        
                     
                     self.map_list[(row,col)] = new_lattice.map_hash
+                else:
+                    self.buffer += 1
                 
-    
-    def display_map(self, choice_index):
-        max_row = 0;min_row = 0;  max_col = 0; min_col = 0
-        print("DISPLAYING LATTICE", choice_index)
-        for x in self.map_list[choice_index]:
-            
-            if(x[0] > max_row): max_row = x[0]
-            if(x[0] < min_row): min_row = x[0]
-
-            if(x[1] > max_col): max_col = x[1]
-            if(x[1] < min_col): min_col = x[1]
-        row_space = abs(min_row) + max_row ; col_space = abs(min_col) + max_col
-        #print('ROW SPACE:',row_space,'COL SPACE:', col_space)
-        #print('max row:', max_row, 'min row:',min_row,' max col:',max_col, 'min col:',min_col)
-        grid = []
-        for x in range(max_row, min_row - 1, -1):
-            row = []
-            for y in range(min_col, max_col + 1):
-                try:
-                    row.append(str(self.map_list[choice_index][(x,y)].index))
-                except:
-                    row.append(str(None))
-            grid.append(row)
-        s = [[str(e) for e in row] for row in grid]
-        lens = [max(map(len, col)) for col in zip(*s)]
-        fmt = '\t'.join('{{:{}}}'.format(x) for x in lens)
-        table = [fmt.format(*row) for row in s]
-        print('\n'.join(table))
-        return (row_space + 1, col_space + 1)
-    
     def find_power_anchor(self):
         number_samples = len(self.picture.index_pixels[0].data)
         pixels = []
@@ -555,60 +578,8 @@ class Compound_Lattice():
         print(sorted_pixels[2])
         self.power_anchor_list = sorted_pixels
 
-    def Orient_around_anchor(self):
-
-
-        start_anchor = self.power_anchor_list[0][0]
-        start_map = self.map_list[start_anchor]
-        start_index_list = pull_indice_list(start_map)
-        print("ANCHOR", start_anchor)
-        self.display_map(start_anchor)
-        for x in start_map:
-            print('x:',x,'starting_map[x]',start_map[x].index)
-        included_maps = {} ; included_n = 0
-        for map in start_index_list:
-            included_n = 0
-            for map_index in self.map_list[map]:
-                if(self.map_list[map][map_index].index in start_index_list and map != self.power_anchor_list[0][0]):
-                    print('found one!', included_n)
-                    included_n += 1
-                if(included_n == 2 and map not in [x[0] for x in included_maps]):
-                    # EVERYTHING AFTER THIS IS JUST INTRODUCING CHALLENGES FOR TESTING. just need the included_maps[map] = self.map_list[map]
-                    if(len(included_maps) == 1):
-                        included_maps[map] = vertically_invert_map(rotate_map(self.map_list[map], 2))
-
-                    else: included_maps[map] = rotate_map(self.map_list[map], 1)
-        
-        #for map in included_maps:
-        #    self.display_map(map)
-        #new_map = rotate_map(self.map_list[(14,15)], 1)
-        #show_map(new_map)
-        print("\n\nORIENTING MAP\n")
-        oriented_maps = rotate_align(start_map, included_maps, start_index_list)
-        oriented_maps[start_anchor] = start_map
-        return oriented_maps
-
-
-
-
-
-    def merge_restricted_anchor(self, restricted_oriented_maps):
-        # zeroeth contains all the nodes
-        
-
-        centralized = central_align(restricted_oriented_maps[list(restricted_oriented_maps.keys())[0]], restricted_oriented_maps, pull_indice_list(restricted_oriented_maps[list(restricted_oriented_maps.keys())[0]]))
-        for c in centralized:
-            show_map(centralized[c])
-        
-        overlaid = Overlaid_Lattice()
-        
-        overlaid.initiate_map(centralized)
-
-        show_map(overlaid.generate_current_map())
-        return overlaid
-        
-
-    def bounded_align_anchor(self, anchor_map_index, bounds):
+    def bounded_align_anchor(self, anchor_map_index):
+        bounds = [0,0,1,1]
         map_in_bounds = {} ; restricted_map = {}
         for row_indices in range(bounds[0], bounds[2] + 1):
             for col_indices in range(bounds[1], bounds[3] + 1):
@@ -629,133 +600,18 @@ class Compound_Lattice():
                     restrict[index] = oriented_maps[oriented_map][index]
             restricted_oriented_maps[oriented_map] = restrict
         print('number of restricted maps', len(restricted_oriented_maps))
-   
-        return self.merge_restricted_anchor(restricted_oriented_maps)
-        
-    def merge_restricted(self, restricted, Overlaid, bounds, stop = False):
-        print("SHOWING RESTRICTED")
-        for map in restricted:
-            print('restricted:',map)
-            show_map(restricted[map])
-            if((0,0) in restricted[map]):
-                print("CENTRAL NODE:",restricted[map][(0,0)].index,'\n')
-        Overlaid.update_map(restricted, bounds, stop)
-        return Overlaid
+        for map in restricted_oriented_maps:
+            print('\nMAP:',map)
+            show_map(restricted_oriented_maps[map])
+        centralized = central_align(self.map_list[anchor_map_index], restricted_oriented_maps, restricted_indices)
+        position_lattice = Position_Lattice(centralized)
+        optimal_map = position_lattice.optimize_map()
 
-    def bounded_align(self, Overlaid_anchor, bounds, stop = False):
-        map_in_bounds = {} ; anchor_map = Overlaid_anchor.generate_current_map()
-        anchor_indices = pull_indice_list(anchor_map)
-        print("SHOWING THE BOUNDED ALIGN START MAP")
-        show_map(anchor_map)
-        
-        # Here I need to write some function that grows the function
-        '''
-        pseudo:
-        take all the maps and align + centralize them to the anchor
-        then restrict 
-        also include nodes that have two nodes in the anchor group?
-        
-        
-        '''
-        expanded_nodes = {}
-
-        for indice in anchor_map:
-            print('printing INDICE:', anchor_map[indice].index)
-            #for indice_all in self.map_list:
-                #include_n = 0
-                #for sub_index in self.map_list[indice_all]:
-                #    if(self.map_list[indice_all][sub_index] in anchor_map):
-
-            try:
-                count = 0
-                for r in range(-1,2):
-                    for c in range(-1,2):
-                        try:
-                            if(self.map_list[anchor_map[indice].index][(r,c)].index in anchor_indices and self.map_list[anchor_map[indice].index][(r,c)].index != anchor_map[indice].index and anchor_map[indice].index not in expanded_nodes):
-                                count +=1
-                                if( count > 1):
-                                    expanded_nodes[anchor_map[indice].index] = self.map_list[anchor_map[indice].index]
-                        except: pass
-                show_map(expanded_nodes[anchor_map[indice].index])
-                print("SUCCESS at", anchor_map[indice].index, indice, anchor_map[indice])
-            except:
-                print("FAILED at", anchor_map[indice].index, indice, anchor_map[indice])
-        
-        # prerestrict around origin to maintain validity.
-        proximity_added = {}
+    def bounded_align_all(self):
         for map in self.map_list:
-            count = 0
-            if(len(self.map_list[map]) > 3):
-                #print(map,self.map_list[map])
-                for r in range(-1,2):
-                    for c in range(-1,2):
-                        try:
-                            if(self.map_list[map][(r,c)].index in anchor_indices and map not in anchor_indices and map not in proximity_added):
-                                count += 1
-                                if(count > 2):
-                                    print("ADDED:", map)
-                                    proximity_added[map] = self.map_list[map]
-                        except:
-                            pass
-        #show_map(self.map_list[(14,14)])
-        #show_map(self.map_list[(14,15)])
-        #show_map(self.map_list[(15,13)])
-        #show_map(self.map_list[(15,16)])
-        for indice in self.map_list[(16,13)]:
-            print(indice, self.map_list[(16,13)][indice].index)
-        for key in proximity_added:
-            expanded_nodes[key] = proximity_added[key]
-        print('\n\n\n\nANCHOR MAP')
-        show_map(anchor_map)
-        print("\nProximity Added:", proximity_added.keys())
-        print('Expanded Nodes:', expanded_nodes.keys())
-        for key in expanded_nodes:
-            print("Displaying Key:",key)
-            show_map(self.map_list[key])
-        if(stop): return None
-
-        
-                
+            print(map)
 
 
-                
-        
-        print("PRE OREINTED (16,14)")
-        oriented = rotate_align(anchor_map, expanded_nodes, anchor_indices)
-        print("\n\nDISPLAYING MAP\n")
-        for map in oriented:
-            print('\nnext map:',map)
-            show_map(oriented[map])
-
-        
-        centralized = central_align(anchor_map, oriented, anchor_indices)
-
-        print("\n\nCENTRALIZED\n")
-
-        for map in centralized:
-            print("MAP CENTRALIZED", map)
-            show_map(centralized[map])
-
-        restricted = restrict(centralized, bounds)
-
-        print("\n\nRESTRICTED SET\n")
-
-        for map in restricted:
-            print("RESTRICTED:", map)
-            show_map(restricted[map])
-        
-        Overlaid_anchor = self.merge_restricted(restricted, Overlaid_anchor, bounds, stop)
-        print('\n\nPRINTING MAP KEYS')
-        for key in Overlaid_anchor.map:
-            print(key, Overlaid_anchor.map[key])
-    
-        final_map = Overlaid_anchor.generate_current_map()
-        print("FINAL MAP")
-        for x in final_map:
-            print('x:',x,'final_map[x]',final_map[x],' final_map[x].index:', final_map[x].index)
-        show_map(final_map)
-        
-        return Overlaid_anchor
 
         
         
@@ -775,56 +631,21 @@ class Compound_Lattice():
 
 
 
-def working_test():
+def working_test_1():
+    # test the bounded align anchor and the optimize map
     ((test_data, test_labels) , (validation_data, validation_labels)) = Gather.download_and_normalize(dataset='mnist', size = 4000)
     random_arrangement_grid = Encrypt.build_random_arrangement_grid(Gather.pull_sample(test_data, test_labels, picture_only=True))
     encrypted_test_data = Encrypt.encrypt_batch(test_data, random_arrangement_grid)
     test = Compound_Lattice(test_data)
-    test.display_map((13,13))
-    test.find_power_anchor()
-    overlaid = test.bounded_align_anchor(test.power_anchor_list[1][0], (0,0,1,1))
-    old_map = overlaid.generate_current_map()
-    new_overlaid = test.bounded_align(overlaid, (-1, -1, 2, 2))
-    new_map = new_overlaid.generate_current_map()
-    print("ANCHOR OVERLAID")
-    show_map(old_map)
-    print('\n\nNEW OVERLAID')
-    show_map(new_map)
-    print('MAP (15,16)')
-    show_map(test.map_list[(16,16)])
-    new_overlaid = test.bounded_align(new_overlaid, (-2, -2, 3, 3))
-    new_map = new_overlaid.generate_current_map()
+    for map in test.map_list:
+        print(map)
+    print("BUFFER", test.buffer)
+    test.bounded_align_anchor((14,15) )
 
-    show_map(new_map)
-    #show_map(test.map_list[(14,14)])
-    new_overlaid = test.bounded_align(new_overlaid, (-3, -3, 4, 4))
-    show_map(new_map)
-    show_map(test.map_list[(14,14)])
-    show_map(test.map_list[(14,13)])
-    #show_map(test.map_list[(14,14)])
-    #new_overlaid = test.bounded_align(new_overlaid, (-4, -4, 5, 5))
-    #new_map = new_overlaid.generate_current_map()
-    #show_map(new_map)
-    #orientation_test = orientation_node((test.power_anchor_list[1][0]))
-    #orientation_test.collect_orientations(test.map_list)
-
-
-    #oriented_maps = test.Orient_around_anchor(oriented_maps)
-    #print("ORIENTED LENGTH: ",len(oriented_maps))
-
-def four_group_overlay_test():
+def working_test_2():
     ((test_data, test_labels) , (validation_data, validation_labels)) = Gather.download_and_normalize(dataset='mnist', size = 4000)
     random_arrangement_grid = Encrypt.build_random_arrangement_grid(Gather.pull_sample(test_data, test_labels, picture_only=True))
     encrypted_test_data = Encrypt.encrypt_batch(test_data, random_arrangement_grid)
     test = Compound_Lattice(test_data)
-    test.find_power_anchor()
-    print('power anchor',test.power_anchor_list[1][0])
-    
-    overlaid_14_14 = test.bounded_align_anchor((14,14), (0,0,1,1))
-    overlaid_14_15 = test.bounded_align_anchor((14,15), (0,0,1,1))
-    overlaid_15_14 = test.bounded_align_anchor((15,14), (0,0,1,1))
-    overlaid_15_15 = test.bounded_align_anchor((15,15), (0,0,1,1))
-     
-    print("showing map (14,14)")
-    show_map(overlaid_14_14.generate_current_map())
-four_group_overlay_test()
+    test.bounded_align_all()
+working_test_2()

@@ -276,7 +276,9 @@ class lattice:
                         #print("VALID PAIR")
                         self.place_by_label(self.placement_list[0].index, index_anchor, 'up')
                         self.place_by_label(self.placement_list[1].index, index_right, 'up')
+                        
                         return
+                        
 
         # find first pair to place above
 
@@ -362,6 +364,7 @@ class lattice:
             groups = list(set(groups))
             groups = sorted(groups, key = lambda x:x[2])
             return groups
+
         def build_linked_sections(groups):
             growth_section_start_with_one = [groups[0][0]]
             growth_section_start_with_two = [groups[0][1]]
