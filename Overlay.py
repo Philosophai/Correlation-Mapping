@@ -1,5 +1,7 @@
+from audioop import avg
 import Gather
 import Encrypt
+import Map
 from time import time
 import pickle
 import Merge2
@@ -19,8 +21,9 @@ class Overlay():
             self.power_order = Compound_Lattice_instance.power_anchor_list
         except:
             
-            Merge2.Compound_Lattice_instance.find_power_anchor()
-            Merge2.Compound_Lattice_instance.double_expand_all()
+            Compound_Lattice_instance.find_power_anchor()
+            Compound_Lattice_instance.double_expand_all()
+            Compound_Lattice_instance.expand_all()
             self.frames = Compound_Lattice_instance.double_expanded
             self.power_order = Compound_Lattice_instance.power_anchor_list
         for node in self.power_order:
@@ -195,20 +198,89 @@ class Overlay():
         [central_aligned_map, score] = central_align(new_frame, rotate_aligned_map)
         #print('Total time to complete insertion', time() - start, 'with score', score)    
         return [central_aligned_map, score, new_frame[0], new_frame[1]]
-
-
+     
+    def Generate_Anchor(self, chosen_anchor = False):
         
-    def Generate_Anchor(self):
         find_first_power_anchor = 0
         while(self.power_order[find_first_power_anchor][0] not in self.frames):
             find_first_power_anchor += 1
 
         
         #print('Found Anchor in frames: ', self.power_order[find_first_power_anchor][0])
-        anchor = self.frames[self.power_order[find_first_power_anchor][0]]
-        self.place_frame(anchor, self.power_order[find_first_power_anchor][0], self.power_order[find_first_power_anchor][1])
+        if(chosen_anchor):
+            anchor = self.frames[chosen_anchor]
+            self.place_frame(anchor, chosen_anchor, self.power_hash[chosen_anchor])
+            self.center = chosen_anchor
+        else:
+            anchor = self.frames[self.power_order[find_first_power_anchor][0]]
+            self.place_frame(anchor, self.power_order[find_first_power_anchor][0], self.power_order[find_first_power_anchor][1])
+            self.center = self.power_order[find_first_power_anchor][0]
         self.update_master_indices()
-        self.center = self.power_order[find_first_power_anchor][0]
+    
+    def judge_frame(self,frame_id):
+        if(frame_id not in self.frames): return None
+        frame_map = self.frames[frame_id]
+
+        '''
+        check how well a particular frame lines up with its neighbours to check its validity
+        1. Grab every frame that has 2 or more indices in test_frame
+        2. rotate_align and central_align then compare the score of the average against its score against itself
+        '''
+        frame_indices = Merge2.pull_indice_list(frame_map)
+        included_frames = {}
+        for frame in self.frames:
+            if(frame != frame_id):
+                index_match = 0
+                #print('FRAME:',frame)
+                for indice in self.frames[frame]:
+                    #print(indice, self.frames[frame][indice].index)
+                    if(self.frames[frame][indice].index in frame_indices):
+                        #print(frame, "MATCH",self.frames[frame][indice].index)
+                        index_match += 1
+                        if(index_match == 3):
+                            included_frames[frame] = self.frames[frame]
+        #for x in included_frames:
+            #print("included:",x)
+        
+        rotated = Merge2.rotate_align(frame_map, included_frames, frame_indices)
+        centralized = Merge2.central_align(frame_map, rotated, frame_indices, True)
+        self_score = list(Merge2.central_align(frame_map, {frame_id: frame_map}, frame_indices, True).values())[0][1]
+        #print("Self Score:", self_score)
+        #print('Other Scores')
+        percentages = [] ; top = []
+        for s in centralized:
+            #print(s, centralized[s][1], centralized[s][1]/ self_score)
+            percentages.append((s,centralized[s][1]/ self_score))
+            if(centralized[s][1] == self_score):
+                top.append(s)
+
+            #percentages.append(centralized[s][1]/ self_score)
+        # format = [ frame, average_percentage, 100% correlate list]
+        return percentages, top
+    def judge_all(self):
+        percentages = []
+        for frame in self.frames:
+            temp_percentages, temp_top = self.judge_frame(frame)
+            if(len(temp_percentages) > 0):
+                #print(frame, temp_percentages)
+                percentages.append((frame, sum([x[1] for x in temp_percentages])/len(temp_percentages), len(temp_percentages), temp_top))
+            
+        percentages = sorted(percentages, key = lambda x:x[1])
+        return percentages
+
+    def Priority_expansion(self, percentages):
+        priority_expansion = [] ; in_list = {}
+        for p in percentages:
+            expansion_list = []
+            for top_index in p[3]:
+                if(top_index not in in_list):
+                    expansion_list.append(top_index)
+                    in_list[top_index] = True
+            if(len(expansion_list) > 0):
+                in_list[p[0]] = True
+                priority_expansion.append(((p[0], expansion_list)))
+        return priority_expansion
+        
 
     def Expand_Master(self):
         '''
@@ -323,7 +395,7 @@ class Overlay():
         #print("INSERTING AND RE-ALIGNING MAPS")
 
         inserted = 0
-        while(inserted < len(queue)):
+        while(inserted < len(self.frames) and len(alignment_values) > 0):
             
             '''
             1. pop alignment values stack and insert
@@ -331,11 +403,13 @@ class Overlay():
             '''
             #for x in alignment_values:
                 #print('alignment_values', inserted, x[2])
+            # map center power
             self.place_frame(alignment_values[0][0], alignment_values[0][2], alignment_values[0][3])
             inserted += 1
-            #print("INSERTED",alignment_values[0][2],'\n\n')
+
+            print("INSERTED",alignment_values[0][2],'\n\n')
             alignment_values = []
-            
+            #queue = collect_insertion_queues()
             for map in queue:
                
                 if( map[0] not in self.completed):
@@ -422,14 +496,39 @@ class Overlay():
         pass
 
 
+def check_expanded(Overlay_test, center_index):
+    if(Overlay_test.reduced == False):
+        Overlay_test.Reduce_Overlay()
+    reduced = Overlay_test.reduced
+    most_right = 0 ; tot = 0
+    for rot in range(0,8):
+        if(rot >3):
+            temp_reduced = Merge2.vertically_invert_map(Merge2.rotate_map(Overlay_test.reduced, rot - 4))
+        else:
+            temp_reduced = Merge2.rotate_map(Overlay_test.reduced, rot)
+        
+        right = 0 ; total = 0
+        for x in temp_reduced:
+            #print('\n\nmaster index:',x[0] + center_index[0], x[1] + center_index[1], temp_reduced[x])
+            if((x[0] + center_index[0], x[1] + center_index[1]) == temp_reduced[x][0][0]): right += 1
+            total += 1
+        if(most_right < right): most_right = right ; tot = total
+
+    print('\n\nright:', most_right, 'total', tot,' %:', most_right/tot)         
 
 def working_test_4():
     # test saving of data needed to generate Overlay
-    ((test_data, test_labels) , (validation_data, validation_labels)) = Gather.download_and_normalize(dataset='mnist', size = 4000)
+    ((test_data, test_labels) , (validation_data, validation_labels)) = Gather.download_and_normalize(dataset='cifar10', size = 2000)
     random_arrangement_grid = Encrypt.build_random_arrangement_grid(Gather.pull_sample(test_data, test_labels, picture_only=True))
     encrypted_test_data = Encrypt.encrypt_batch(test_data, random_arrangement_grid)
+    full_data = []
+    for x in test_data:
+        full_data.append(x)
+    for x in validation_data:
+        full_data.append(x)
+    full_data = np.array(full_data)
     start = time()
-    test = Merge2.Compound_Lattice(test_data)
+    test = Merge2.Compound_Lattice(full_data)
     print('Built test at', time() - start)
     test.find_power_anchor()
     print("Built Power Anchor", time() - start)
@@ -437,13 +536,38 @@ def working_test_4():
     print("Double Expand All", time() - start)
     Overlay_test = Overlay(test)
     print("Built Overlay", time() - start)
-    outfile = open('Overlay_lattice_feed.obj','wb')
-    pickle.dump(test,outfile)
+    #outfile = open('Overlay_lattice_feed.obj','wb')
+    #pickle.dump(test,outfile)
+    inc_A, top_A = Overlay_test.judge_frame((15,14))
+    inc_B = Overlay_test.judge_frame((7,14))
+    inc_C = Overlay_test.judge_frame((12,14))
+    Merge2.show_map(Overlay_test.frames[(12,14)])
+    #print('Av A:', sum(inc_A)/len(inc_A),'Length B:',sum(inc_B)/len(inc_B), 'Length C:', sum(inc_C)/len(inc_C))
+    for x in inc_A:
+        print(x)
+    for y in top_A:
+        print('top',y)
+    percentages = Overlay_test.judge_all()
+    for p in percentages:
+        print('\nINDEX + VALIDITY:',p)
+        Merge2.show_map(Overlay_test.frames[p[0]])  
+    priority = Overlay_test.Priority_expansion(percentages)
+    blank = np.zeros((34,34,1)) ; animation = []
+    for p in priority:
+        print('center index', p[0])
+        print(p)
+        blank[p[0][0]][p[0][1]][0] = 1
+        for t in p[1]:
+            blank[t[0]][t[1]][0] = 0.3
+        animation.append(blank.copy())
+    Map.animate_image_matrix(animation, 'Distributed Anchor Generation CIFAR10', 10)
+
     #print("Loading the Overlay:")
     #infile = open('Overlay_lattice_feed.obj','rb')
     #Overlay_food = pickle.load(infile)
     #Overlay_test = Overlay(Overlay_food)
-    Overlay_test.Generate_Anchor()
+    #Overlay_test.Generate_Anchor()
+    '''
     print("Generated Anchor", time() - start)
     Overlay_test.Expand_Master()
     print("EXPANDED 1", time() - start)
@@ -468,6 +592,8 @@ def working_test_4():
 
     Merge2.show_map(Overlay_test.frames[Overlay_test.power_order[0][0]])
     Overlay_test.Project_Overlay(test_data[0])
+    '''
+    print('LENGTH OF DATA:', len(full_data))
    
 
 def working_test_5():
@@ -478,12 +604,17 @@ def working_test_5():
     Overlay_test = Overlay(Overlay_food)
     start = time()
     
-    Overlay_test.Generate_Anchor()
+    Overlay_test.Generate_Anchor((18,15))
+
     Overlay_test.Expand_Master()
-    Overlay_test.Expand_Master()
-    Overlay_test.Expand_Master()
-    Overlay_test.Expand_Master()
-    print("Generated Anchor", time() - start)
+    #print("EXPANDED 1", time() - start)
+    #Overlay_test.Expand_Master()
+    #print("EXPANDED 2", time() - start)
+    #Overlay_test.Expand_Master()
+    #print("EXPANDED 3", time() - start)
+    #Overlay_test.Expand_Master()
+    #print("EXPANDED 4", time() - start)
+    #print("Generated Anchor", time() - start)
     
 
 
@@ -491,16 +622,77 @@ def working_test_5():
     Merge2.show_map(Overlay_test.frames[Overlay_test.power_order[0][0]])
     
     reduced = Overlay_test.Reduce_Overlay() 
-    reduced = Merge2.rotate_map(Overlay_test.reduced, 2)
-    Merge2.show_map(reduced)
+    reduced = Merge2.vertically_invert_map(Merge2.rotate_map(Overlay_test.reduced, 1))
+    Merge2.show_map(Overlay_test.frames[(18,15)])
+    right = 0 ; total = 0
     for x in reduced:
-        print('\n\nmaster index:',x[0] + 14, x[1] + 15, reduced[x])
+        print('\n\nmaster index:',x[0] + 18, x[1] + 15, reduced[x])
+        if((x[0] + 18, x[1] + 15) == reduced[x][0][0]): right += 1
+        total += 1
+    print('\n\nright:', right, 'total', total,' %:', right/total)
 
+    '''
+    Correctness Test: 
+     (14,15)
+     Anchor = 1 ( 8/8 )
+     Expand 1 = 0.923 ( 12/13)
+     Expand 2 = 0.913 ( 21/23)
+     Expand 3 = 0.805 (29/36)
+     Expand 4 = 0.679 (38/56)
+     (15,15)
+     Anchor  = 0.888 ( 8/9)
+     Expand 1 = 0.789 ( 30/38)
+     Expand 2 = 0.63 (53/84)
+     
+
+    '''
     #for x in range(10):
     #    Overlay_test.Project_Overlay(test_data[x])
     
     
+def working_test_6():
+    ((test_data, test_labels) , (validation_data, validation_labels)) = Gather.download_and_normalize(dataset='mnist', size = 10)
+    print("Loading the Overlay:")
+    infile = open('Overlay_lattice_feed.obj','rb')
+    Overlay_food = pickle.load(infile)
+    Overlay_test = Overlay(Overlay_food)
+    for frame in Overlay_test.frames:
+        print(frame)
+        Merge2.show_map(Overlay_test.frames[frame])
+    inc_A, top_A = Overlay_test.judge_frame((15,14))
+    inc_B = Overlay_test.judge_frame((7,14))
+    inc_C = Overlay_test.judge_frame((12,14))
+    Merge2.show_map(Overlay_test.frames[(12,14)])
+    #print('Av A:', sum(inc_A)/len(inc_A),'Length B:',sum(inc_B)/len(inc_B), 'Length C:', sum(inc_C)/len(inc_C))
+    for x in inc_A:
+        print(x)
+    for y in top_A:
+        print('top',y)
+    percentages = Overlay_test.judge_all()
+    for p in percentages:
+        print('\nINDEX + VALIDITY:',p)
+        Merge2.show_map(Overlay_test.frames[p[0]])  
+    priority = Overlay_test.Priority_expansion(percentages)
+    animation = []
+    blank = np.zeros((28,28,1))
+    for p in priority:
+        print('center index', p[0])
+        print(p)
+        blank[p[0][0]][p[0][1]][0] = 1
+        for t in p[1]:
+            blank[t[0]][t[1]][0] = 0.3
+        #plt.imshow(blank)
+        #plt.title(label=str(p[0]))
+        #plt.show()
+        #plt.figure()
+        animation.append(blank.copy())
+    Map.animate_image_matrix(animation, 'Distributed Anchor Generation MNIST', 5)
+    
+
+    #Overlay_test.Generate_Anchor((12,15))
+    #Overlay_test.Expand_Master()
+    #reduced = Overlay_test.Reduce_Overlay() 
+    #check_expanded(Overlay_test, (12,15))
 
 
-
-working_test_5()
+#working_test_4()

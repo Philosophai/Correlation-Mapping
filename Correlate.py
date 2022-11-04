@@ -28,6 +28,8 @@ class index_pixel:
         for picture in data:
             self.data.append(picture[self.index[0]][self.index[1]])
         self.data = np.array(self.data)
+        self.power = np.sum(self.data)/len(self.data)
+        
 
     def integrate_association_list(self, association_list):
         self.association_list = association_list
@@ -368,3 +370,33 @@ def association_group_test():
     picture_test.apply_association()
     picture_test.index_pixels_hash[(14,14)].build_association_group()
 
+def mutual_favorite_vh_test():
+
+    ((test_data, test_labels) , (validation_data, validation_labels)) = Gather.download_and_normalize(dataset='mnist', size = 3000)
+    picture_test = picture_pixel(test_data)
+    picture_test.apply_association()
+    acceptable_differences = [(0,1), (0, -1), (1,0), (-1, 0)]
+    correct = [0, 0]
+    blank = np.zeros((32,32))
+    for pixel in picture_test.index_pixels_hash:
+        #print('index',pixel)
+        vh_pixel = picture_test.index_pixels_hash[pixel].vh_association_group[0]
+        vh_match = False
+        if(picture_test.index_pixels_hash[vh_pixel[1]].vh_association_group[0][1] == pixel):
+            for diff in acceptable_differences:
+                if((diff[0] + vh_pixel[1][0], diff[1] + vh_pixel[1][1]) == pixel):
+                    vh_match = True
+            if(vh_match):
+                correct[0] += 1
+                blank[pixel[0]][pixel[1]] = 1
+            correct[1] += 1
+    plt.imshow(blank)
+    plt.title("CIFAR10 MUTUAL FAVORITE TEST")
+    plt.show()
+    plt.figure()
+
+    
+
+    print('FINAL EVALUATION OVER ', correct[1],' mutually favorite pairs:',correct[0],'\nSuccess percentage of ', correct[0]/correct[1])
+
+#mutual_favorite_vh_test()

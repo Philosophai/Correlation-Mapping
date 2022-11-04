@@ -404,9 +404,12 @@ def central_align(anchor_map, map_set, indice_list, score = False):
                                 pass
                         if(similarity_value > best_similarity_value):
                             new_map = temp_new_map ; best_similarity_value = similarity_value
-        shift_set[map_example] = new_map
+        if(score):
+            shift_set[map_example] = [new_map, best_similarity_value]
+        else:
+            shift_set[map_example] = new_map
         #print('\n\n\n')
-    if(score): return [shift_set, best_similarity_value]
+    
     return shift_set             
 
 
