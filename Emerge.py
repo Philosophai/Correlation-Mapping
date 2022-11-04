@@ -1,3 +1,4 @@
+
 import Gather
 import Encrypt
 from time import time
@@ -9,12 +10,20 @@ import matplotlib.pyplot as plt
 import Overlay
 
 
+'''
+TODO:
+1. BUILD MERGE PROTOCOL-
+    play around with idea where conflicting nodes aren't attempted to be solved and are instead just assigned to be the average 
+
+
+'''
 class node:
     def __init__(self, index, index_pixel, map_index, up = None, down = None, right = None, left = None):
         self.index = index ; self.map_index = map_index
         self.up = up ; self.down = down ; self.right = right ; self.left = left
         self.vh = index_pixel.vh_association_group
         self.diag = index_pixel.diag_association_group
+        self.power = index_pixel.power
 
 
     def has_connections_available(self):
@@ -52,12 +61,18 @@ class node:
 
 class lattice:
     
-    def __init__(self, picture_pixel, anchor_index):
+    def __init__(self, picture_pixel, anchor_index, pre_build = False):
         self.anchor_index = node(anchor_index, picture_pixel.index_pixels_hash[anchor_index], (0,0))
-        self.anchor_index.right = node(self.anchor_index.vh[0][1],picture_pixel.index_pixels_hash[self.anchor_index.vh[0][1]],(0,1), left = self.anchor_index)
-        self.placement_list = [self.anchor_index, self.anchor_index.right]
-        self.placement_hash = {self.anchor_index.index:self.anchor_index , self.anchor_index.right.index : self.anchor_index.right}
-        self.map_hash = {self.anchor_index.map_index: self.anchor_index , self.anchor_index.right.map_index : self.anchor_index.right}
+        if(not pre_build):
+            self.anchor_index.right = node(self.anchor_index.vh[0][1],picture_pixel.index_pixels_hash[self.anchor_index.vh[0][1]],(0,1), left = self.anchor_index)
+            self.placement_list = [self.anchor_index, self.anchor_index.right]
+            self.placement_hash = {self.anchor_index.index:self.anchor_index , self.anchor_index.right.index : self.anchor_index.right}
+            self.map_hash = {self.anchor_index.map_index: self.anchor_index , self.anchor_index.right.map_index : self.anchor_index.right}
+        else:
+            self.placement_list = [self.anchor_index]
+            self.placement_hash = {self.anchor_index.index:self.anchor_index }
+            self.map_hash = {self.anchor_index.map_index: self.anchor_index }   
+        self.merge_count = {}        
         self.picture = picture_pixel
         self.hash = picture_pixel.index_pixels_hash
         self.uncertain = False
@@ -65,7 +80,26 @@ class lattice:
             if(self.hash[node_index].vh_association_group[2][0] == 0.0):
                 self.uncertain = True
                 break
-    
+    def prebuild_lattice(self, map_set):
+        for mapping in map_set:
+            self.place_by_map_index(mapping[0], mapping[1])
+    def integrity_test(self):
+        score = 0
+        for pixel in self.placement_hash:
+            up_right_down_left = [self.placement_hash[pixel].up,self.placement_hash[pixel].right,self.placement_hash[pixel].down,self.placement_hash[pixel].left]
+            
+            for adjacent in up_right_down_left:
+                present = True
+                if(type(adjacent) != type(None)):
+                    present = False
+                    for vh_node in self.placement_hash[pixel].vh:
+                        if(adjacent.index == vh_node[1]):
+                            score += vh_node[0]
+                            present = True
+                if(not present ):
+                    score -= 1
+        return score
+
 
     def connect_local(self, placed_node):
         up_code = (1, 0) ; down_code = (-1, 0) ; right_code = (0, 1) ; left_code = (0, -1)
@@ -246,7 +280,7 @@ class lattice:
         def find_possible_next_locations():
             locations = []
             for pixel in self.map_hash:
-                print(pixel, self.map_hash[pixel].index)
+                #print(pixel, self.map_hash[pixel].index)
                 temp = self.map_hash[pixel].return_available_positions()
                 #print("temp", temp)
                 for x in temp:
@@ -265,13 +299,15 @@ class lattice:
             for primary in primary_sources:
                 #print('primary index:',primary)
                 for node in range(len(self.hash[primary].vh_association_group)):
-                    if(self.hash[primary].vh_association_group[node][1] not in self.placement_hash):
-                        #print("Not known node found ", self.hash[primary].vh_association_group[node][1])
+                    if(self.hash[primary].vh_association_group[node][1] not in self.placement_hash and self.hash[self.hash[primary].vh_association_group[node][1]].power > 0):
+                        
+                        #print("Not known node found ", self.hash[primary].vh_association_group[node][1],self.hash[primary].vh_association_group )
                         if(self.hash[primary].vh_association_group[node][1] not in primary_suggestions):
-                            primary_suggestions[self.hash[primary].vh_association_group[node][1]] = [1, node, self.hash[primary].vh_association_group[node][0]]
+                            primary_suggestions[self.hash[primary].vh_association_group[node][1]] = [1, max(1,node), self.hash[primary].vh_association_group[node][0]]
+                            #print("INSTANTIATING NODE:",primary_suggestions[self.hash[primary].vh_association_group[node][1]] )
                         else:
                             primary_suggestions[self.hash[primary].vh_association_group[node][1]][0] += 1
-                            primary_suggestions[self.hash[primary].vh_association_group[node][1]][1] *=node
+                            primary_suggestions[self.hash[primary].vh_association_group[node][1]][1] *=max(node, 1)
                             primary_suggestions[self.hash[primary].vh_association_group[node][1]][2] += self.hash[primary].vh_association_group[node][0]
             
             #print("PRINTING PRIMARY SUGGESTIONS")
@@ -281,17 +317,17 @@ class lattice:
             # have the base nodes to be judged now need to gather the supporting nodes
             #print("PRINTING SECONDARY SOURCES", secondary_sources)
             for secondary in secondary_sources:
-            #    print("secondary_source", secondary)
+                #print("secondary_source", secondary)
                 if(secondary[0] not in secondary_suggestions):
                     secondary_suggestions[secondary[0]] = {}
                 vh = self.hash[secondary[1]].vh_association_group
                 for index in range(len(vh)):
                     if(vh[index][1] in secondary_suggestions[secondary[0]]):
                         secondary_suggestions[secondary[0]][vh[index][1]][0] += 1
-                        secondary_suggestions[secondary[0]][vh[index][1]][1] *= index
+                        secondary_suggestions[secondary[0]][vh[index][1]][1] *= max(1, index)
                         secondary_suggestions[secondary[0]][vh[index][1]][1] += vh[index][0]
                     else:
-                        secondary_suggestions[secondary[0]][vh[index][1]] = [1, index, vh[index][0]]
+                        secondary_suggestions[secondary[0]][vh[index][1]] = [1, max(1, index), vh[index][0]]
             
             
             #print("PRINTING SECONDARY SUGGESTIONS")
@@ -306,7 +342,7 @@ class lattice:
             #print("PLACED NODES", [ x.index for x in list(self.placement_hash.values())])
             #print("Combining into scores")
             for primary in primary_suggestions:
-            #    print('Primary: ',primary,": ", primary_suggestions[primary])
+                #print('Primary: ',primary,": ", primary_suggestions[primary])
                 new_best_score = primary_suggestions[primary]
                 
                 for secondary_map_index in secondary_suggestions:
@@ -322,7 +358,7 @@ class lattice:
             #                        print("FOUND PRIMARY")
                                     if(not secondary_source_position_counted):
                                         new_best_score[0] += 1
-                                        new_best_score[1] *= ((vh_node + 1)*secondary_suggestions[secondary_map_index][index][1])
+                                        new_best_score[1] *= (max(vh_node, 1)*secondary_suggestions[secondary_map_index][index][1])
                                         new_best_score[2] += vh_group[vh_node][0] + secondary_suggestions[secondary_map_index][index][1]
             #                            print("FIRST UPDATE TO PRIMARY ",primary,": ", new_best_score)
                                         secondary_source_position_counted = True
@@ -330,7 +366,7 @@ class lattice:
             #                            print("CHECKING NEW SCORE")
                                         temp_score =  primary_suggestions[primary].copy()
                                         temp_score[0] += 1
-                                        temp_score[1] *= ((vh_node + 1)*secondary_suggestions[secondary_map_index][index][1])
+                                        temp_score[1] *= ( max(vh_node, 1)*secondary_suggestions[secondary_map_index][index][1])
                                         temp_score[2] += vh_group[vh_node][0] + secondary_suggestions[secondary_map_index][index][1]
             #                            print("NEW BEST SCORE", new_best_score)
                                         if(temp_score[1] < new_best_score[1] or (temp_score[1] == new_best_score[1] and temp_score[2] < new_best_score[2])):
@@ -338,7 +374,7 @@ class lattice:
                                             new_best_score = temp_score
             #                            print("CHANGED NEW BEST SCORE", new_best_score)
                 primary_suggestions[primary] = new_best_score
-            #    print("FINAL PRIMARY:",primary," score is -> ",primary_suggestions[primary] )
+                #print("FINAL PRIMARY:",primary," score is -> ",primary_suggestions[primary] )
             
             max_1st_sort = 0
             for primary in primary_suggestions: 
@@ -352,10 +388,13 @@ class lattice:
             for primary in primary_suggestions: 
                 if(primary_suggestions[primary][0] == max_1st_sort and min_2nd_sort == primary_suggestions[primary][1] and min_final_value > primary_suggestions[primary][2]): 
                     min_final_value = primary_suggestions[primary][2] ; min_final_index = primary
-            #    print("PRIMARY SUGGESTIONS",primary,':', primary_suggestions[primary])
+                    #print("updating value", min_final_index)
+                #print("PRIMARY SUGGESTIONS",primary,':', primary_suggestions[primary], 'max 1st:', max_1st_sort, 'min 2nd:', min_2nd_sort)
             
             #print("FINAL SHIT BOIIII: ", primary_suggestions[min_final_index], min_final_index )
             #self.display_self()
+            if(min_final_index == -1):
+                return []
             return [primary_suggestions[min_final_index], min_final_index]
                                         
                                         
@@ -377,6 +416,8 @@ class lattice:
             #print('\n\nASSESSING ',map_index)
             #self.display_self()
             score_indice = score_primary_suggestions(expansion_groups[map_index])
+            if(len(score_indice) == 0):
+                score_indice = [[0, 1000, 1000], -1]
             score_indice_position.append([score_indice[0], score_indice[1], map_index])
         
         print("GOING THROUGH SCORE INDICE POSITION")
@@ -405,6 +446,7 @@ class lattice:
         print("END RESULT OF find_best_expansion ",  final_index)
         self.display_self()
         print("DISPLAYED OVER\n")
+
         return final_index
             
         
@@ -447,6 +489,7 @@ class Emerge:
         #plt.figure()
         #plt.plot(power_graph)
         #plt.show()
+
     def build_expansion_set(self):
         '''
         Find the best possible expansion of all anchors that have not already been expanded.
@@ -469,8 +512,89 @@ class Emerge:
         
         for x in range(len(sorted_expansion_set)):
             print('expansion_set: ', x, sorted_expansion_set[x])
-
+    
+    def merge_two(self, index_alpha, index_beta):
+        if(index_beta not in self.lattices[index_alpha].merge_count):
+            self.lattices[index_alpha].merge_count[index_beta] = 1
+        else: self.lattices[index_alpha].merge_count[index_beta] += 1
         
+        if(index_alpha not in self.lattices[index_beta].merge_count):
+            self.lattices[index_beta].merge_count[index_alpha] = 1
+        else: self.lattices[index_beta].merge_count[index_alpha] += 1
+        
+        if(self.lattices[index_alpha].merge_count[index_beta] > 2 or self.lattices[index_beta].merge_count[index_alpha] > 2):
+            anchor_map_hash = self.lattices[index_beta].map_hash
+            incomer_map_hash = self.lattices[index_alpha].map_hash
+            anchor_indice_list = Merge2.pull_indice_list(anchor_map_hash)
+            print("ANCHOR MAP:")
+            self.lattices[index_beta].display_self()
+            print("\nINCOMING MAP:")
+            self.lattices[index_alpha].display_self()
+            oriented = Merge2.rotate_align(anchor_map_hash, {'first': incomer_map_hash}, anchor_indice_list)
+
+            raise ValueError('REACHED THE POINT WHERE WE ACTUALLY NEED A MERGE')
+        print('merge count: ',self.lattices[index_beta].merge_count[index_alpha])
+
+    def grow_outliers_of_expansion_set(self):
+        '''
+        IDEA:
+        FOR THIS SET GROW EVERY EXPANSION RESULT THAT HAVE THE MAXIMUM 1st AND 2nd VALUES.
+        ei. [2, 2, 2.01], [2,2,1.04] but not [2,3,1.7]
+        IN every 
+        '''
+        max_1st = 0
+        min_2nd = 1000
+        proposals_to_expand = []
+        for expansion_proposal in self.expansion_set:
+            if(self.expansion_set[expansion_proposal][1][0][0] > max_1st):
+                max_1st = self.expansion_set[expansion_proposal][1][0][0]
+                min_2nd = 1000
+                proposals_to_expand = []
+                
+            if(self.expansion_set[expansion_proposal][1][0][1] < min_2nd and self.expansion_set[expansion_proposal][1][0][0] == max_1st):
+                min_2nd = self.expansion_set[expansion_proposal][1][0][1]
+                proposals_to_expand = []
+                
+            if(self.expansion_set[expansion_proposal][1][0][0] == max_1st and self.expansion_set[expansion_proposal][1][0][1] == min_2nd):
+                proposals_to_expand.append((expansion_proposal, self.expansion_set[expansion_proposal]))
+        print('printing proposals', max_1st, min_2nd, 'len:', len(proposals_to_expand))
+
+        max_1st -= 1 ; min_3rd = 10 ; min_index = -1
+        while(max_1st > 1):
+            for expansion_proposal in self.expansion_set:
+                if(self.expansion_set[expansion_proposal][1][0][0] == max_1st and self.expansion_set[expansion_proposal][1][0][2] < min_2nd):
+                    min_3rd = self.expansion_set[expansion_proposal][1][0][2]
+                    min_index = expansion_proposal
+            max_1st -= 1
+            proposals_to_expand.append((min_index, self.expansion_set[min_index]))
+        for x in proposals_to_expand : 
+            print('X',x)
+            if(x[1][1][1] in self.completed):
+                print("MERGE NECESSARY FOR ", x[0], 'trying to merge into ', x[1][1][1])
+                self.lattices[x[0]].display_self()
+                lattice_to_be_merged = -1
+                for lattice in self.lattices:
+                    for index in self.lattices[lattice].placement_hash:
+                        if(index == x[1][1][1]):
+                            print('LATTICE TO BE MERGED WITH: ', lattice)
+                            self.lattices[lattice].display_self()
+                            lattice_to_be_merged = lattice
+                self.lattices[x[0]].place_by_map_index(x[1][1][1], x[1][1][2])
+                self.merge_two(x[0], lattice)
+                self.expansion_set[x[0]][0] = False
+                self.completed[x[1][1][1]] = True
+
+                #raise ValueError('havent done this yet.')
+            else:
+                print("\nADDING", x[1][1][1],'to', x[0])
+                self.lattices[x[0]].display_self()
+                self.lattices[x[0]].place_by_map_index(x[1][1][1], x[1][1][2])
+                print("ADDED:")
+                self.lattices[x[0]].display_self()
+                self.expansion_set[x[0]][0] = False
+                self.completed[x[1][1][1]] = True
+
+        pass
 
         
 
@@ -479,6 +603,37 @@ def working_test():
     picture_test = Correlate.picture_pixel(test_data)
     picture_test.apply_association()
     test = Emerge(picture_test)
+    print("INTEGRITY TEST",test.lattices[(10,6)].integrity_test())
+    start = time()
     test.build_expansion_set()
+    first = time() - start
+    test.grow_outliers_of_expansion_set()
+    second = time() - first - start
+    test.build_expansion_set()
+    third = time() - second - first - start
+    print("first expansion", first, 'build and set:', second,' second expansion', third)
+    test.grow_outliers_of_expansion_set()
+    test.build_expansion_set()
+    test.grow_outliers_of_expansion_set()
+    test.build_expansion_set()
+    test.grow_outliers_of_expansion_set()
+    test.build_expansion_set()
+    test.grow_outliers_of_expansion_set()
+    test.build_expansion_set()
+    test.grow_outliers_of_expansion_set()
+    test.build_expansion_set()
+    test.grow_outliers_of_expansion_set()
+    test.build_expansion_set()
+    test.grow_outliers_of_expansion_set()
+    test.build_expansion_set()
+    test.grow_outliers_of_expansion_set()
+    test.build_expansion_set()
+    test.grow_outliers_of_expansion_set()
+    test.build_expansion_set()
+    test.grow_outliers_of_expansion_set()
+    test.build_expansion_set()
+    test.grow_outliers_of_expansion_set()
+    test.build_expansion_set()
+    test.grow_outliers_of_expansion_set()
 
 working_test()
