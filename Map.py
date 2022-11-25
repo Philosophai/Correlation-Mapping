@@ -707,7 +707,7 @@ class lattice:
             self.place_by_map_index(map[map_index].index, map_index, True)
             
 
-    def transform(self, picture, map_hash = None, show = True, use_background = False, base_index = (None, None)):
+      def transform(self, picture, map_hash = None, show = True, use_background = False, base_index = (None, None), transformed_image_title = 'Mapped Output from Lattice'):
         if(map_hash == None):
             map_hash = self.map_hash
         else: 
@@ -730,19 +730,17 @@ class lattice:
             blank[base_index[0] + x[0]][base_index[1] + x[1]] = picture[self.map_hash[x].index[0]][self.map_hash[x].index[1]]
         if(show):
             plt.imshow(blank)
-            try:
-                plt.title(f'transform from :{self.anchor_index.index}')
-            except:
-                plt.title("Compiled Lattice")
+            plt.title(transformed_image_title)
             plt.show()
             plt.figure
             plt.imshow(picture)
+            plt.title("Original Input")
             plt.show()
             plt.figure()
         
         return blank
     
-    def raw_transform(self, picture, map_hash = None, show = True, use_background = False, base_index = (None, None)):
+    def raw_transform(self, picture, map_hash = None, show = True, use_background = False, base_index = (None, None),transformed_image_title = 'Mapped Output from Lattice'):
         if(map_hash == None):
             map_hash = self.map_hash
         self.update_map_index(self.map_hash)
@@ -779,13 +777,11 @@ class lattice:
             blank[base_index[0] + x[0]][base_index[1] + x[1]] = picture[self.map_hash[x].index[0]][self.map_hash[x].index[1]]
         if(show):
             plt.imshow(blank)
-            try:
-                plt.title(f'transform from :{self.anchor_index.index}')
-            except:
-                plt.title("Compiled Lattice")
+            plt.title(transformed_image_title)
             plt.show()
             plt.figure
             plt.imshow(picture)
+            plt.title("Original Input")
             plt.show()
             plt.figure()
         
