@@ -6,6 +6,8 @@ If you want to see it yourself quickly- here is the colab file: https://colab.re
 
 I completed this November 2022.
 
+Files necessary for demo: Gather.py, Encrypt.py, Correlate.py, Map.py, Merge.py, Emerge.py : run Emerge.py for the demo.
+
 the encryption process:
 
 I build an arrangment grid that takes each pixel and assigns it a new randomly chosen location, each pixels location is independent from others in its row and column. 
